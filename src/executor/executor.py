@@ -178,67 +178,85 @@ class ScriptExecutor:
     
     def _click_image(self, name: str, confidence: float = 0.9, offset=None):
         """点击图片"""
-        img_path = self._resolve_image_path(name, self.current_script_dir)
-        if not img_path:
-            self.log(f"图片不存在：{name}", "ERROR")
-            return
+        import traceback
         
-        template = self.image_matcher.load_template(str(img_path))
-        if not template:
-            self.log(f"无法加载图片：{name}", "ERROR")
-            return
-        
-        # 检查 offset 是否是屏幕坐标（大于 1000 认为是屏幕坐标）
-        if offset is not None and len(offset) == 2:
-            try:
-                offset_x, offset_y = int(offset[0]), int(offset[1])
-            except (TypeError, ValueError):
-                offset_x, offset_y = 0, 0
+        try:
+            self.log(f"_click_image 开始：name={name}, offset={offset}")
             
-            if offset_x > 1000:
-                # 直接使用屏幕坐标点击
-                if self.input_controller:
-                    scaled_x = int(offset_x * self.scale_factor)
-                    scaled_y = int(offset_y * self.scale_factor)
-                    self.input_controller.click(scaled_x, scaled_y)
-                self.log(f"点击屏幕位置：{name} ({offset_x}, {offset_y}) -> 缩放后 ({scaled_x}, {scaled_y})")
+            img_path = self._resolve_image_path(name, self.current_script_dir)
+            if not img_path:
+                self.log(f"图片不存在：{name}", "ERROR")
                 return
-        
-        # 使用图像识别定位
-        if self.current_window:
-            screen = self.screen_manager.get_screen_region(
-                self.current_window, 0, 0,
-                self.current_window.width, self.current_window.height
-            )
-            result = self.image_matcher.find_template(screen, template, confidence)
             
-            if result:
-                x = result.center[0]
-                y = result.center[1]
-                if offset is not None and len(offset) == 2:
-                    try:
-                        x += int(offset[0])
-                        y += int(offset[1])
-                    except (TypeError, ValueError):
-                        pass
-                if self.input_controller:
-                    self.input_controller.click(x, y)
-                self.log(f"点击图片：{name} ({x}, {y})")
-            else:
-                # 图像识别失败，如果有屏幕坐标则使用屏幕坐标
-                if offset is not None and len(offset) == 2:
-                    try:
-                        offset_x, offset_y = int(offset[0]), int(offset[1])
-                        if offset_x > 1000:
-                            if self.input_controller:
-                                scaled_x = int(offset_x * self.scale_factor)
-                                scaled_y = int(offset_y * self.scale_factor)
-                                self.input_controller.click(scaled_x, scaled_y)
-                            self.log(f"图像识别失败，使用屏幕坐标：{name} ({scaled_x}, {scaled_y})")
-                            return
-                    except:
-                        pass
-                self.log(f"未找到图片：{name} (confidence < {confidence})", "ERROR")
+            self.log(f"图片路径：{img_path}")
+            
+            template = self.image_matcher.load_template(str(img_path))
+            if not template:
+                self.log(f"无法加载图片：{name}", "ERROR")
+                return
+            
+            self.log(f"模板加载成功，shape={template.shape}")
+            
+            # 检查 offset 是否是屏幕坐标（大于 1000 认为是屏幕坐标）
+            if offset is not None and len(offset) == 2:
+                try:
+                    offset_x, offset_y = int(offset[0]), int(offset[1])
+                except (TypeError, ValueError):
+                    offset_x, offset_y = 0, 0
+                
+                self.log(f"offset 转换后：({offset_x}, {offset_y})")
+                
+                if offset_x > 1000:
+                    # 直接使用屏幕坐标点击
+                    if self.input_controller:
+                        scaled_x = int(offset_x * self.scale_factor)
+                        scaled_y = int(offset_y * self.scale_factor)
+                        self.input_controller.click(scaled_x, scaled_y)
+                    self.log(f"点击屏幕位置：{name} ({offset_x}, {offset_y}) -> 缩放后 ({scaled_x}, {scaled_y})")
+                    return
+            
+            # 使用图像识别定位
+            if self.current_window:
+                self.log(f"开始图像识别...")
+                screen = self.screen_manager.get_screen_region(
+                    self.current_window, 0, 0,
+                    self.current_window.width, self.current_window.height
+                )
+                result = self.image_matcher.find_template(screen, template, confidence)
+                
+                if result:
+                    self.log(f"图像识别成功：x={result.x}, y={result.y}, confidence={result.confidence}")
+                    x = int(result.center[0])
+                    y = int(result.center[1])
+                    if offset is not None and len(offset) == 2:
+                        try:
+                            x += int(offset[0])
+                            y += int(offset[1])
+                        except (TypeError, ValueError):
+                            pass
+                    if self.input_controller:
+                        self.input_controller.click(x, y)
+                    self.log(f"点击图片：{name} ({x}, {y})")
+                else:
+                    # 图像识别失败，如果有屏幕坐标则使用屏幕坐标
+                    if offset is not None and len(offset) == 2:
+                        try:
+                            offset_x, offset_y = int(offset[0]), int(offset[1])
+                            if offset_x > 1000:
+                                if self.input_controller:
+                                    scaled_x = int(offset_x * self.scale_factor)
+                                    scaled_y = int(offset_y * self.scale_factor)
+                                    self.input_controller.click(scaled_x, scaled_y)
+                                self.log(f"图像识别失败，使用屏幕坐标：{name} ({scaled_x}, {scaled_y})")
+                                return
+                        except Exception as e:
+                            self.log(f"fallback 失败：{e}", "ERROR")
+                    self.log(f"未找到图片：{name} (confidence < {confidence})", "ERROR")
+        
+        except Exception as e:
+            self.log(f"_click_image 异常：{e}", "ERROR")
+            self.log(f"堆栈：{traceback.format_exc()}", "ERROR")
+            raise
     
     def _image_exists(self, name: str, confidence: float = 0.8) -> bool:
         """检查图片是否存在"""
