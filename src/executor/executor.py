@@ -119,22 +119,15 @@ class ScriptExecutor:
             self.log(f"图片不存在：{name}", "ERROR")
             return False
         
-        template = self.image_matcher.load_template(str(img_path))
-        if not template:
-            self.log(f"无法加载图片：{name}", "ERROR")
-            return False
-        
         start_time = time.time()
         while (time.time() - start_time) * 1000 < timeout:
-            if self.current_window:
-                screen = self.screen_manager.get_screen_region(
-                    self.current_window, 0, 0, 
-                    self.current_window.width, self.current_window.height
-                )
-                result = self.image_matcher.find_template(screen, template, confidence)
-                if result:
-                    self.log(f"找到图片：{name} (confidence={result.confidence:.2f})", "DEBUG")
+            try:
+                location = pyautogui.locateOnScreen(str(img_path), confidence=confidence)
+                if location:
+                    self.log(f"找到图片：{name}", "DEBUG")
                     return True
+            except Exception:
+                pass
             time.sleep(0.1)
         
         self.log(f"等待超时：{name}", "WARNING")
@@ -161,6 +154,7 @@ class ScriptExecutor:
     def _click_image(self, name: str, confidence: float = 0.7, offset=None):
         """点击图片"""
         import time
+        import traceback
         
         start_time = time.time()
         scaled_x, scaled_y = 0, 0  # Initialize fallback variables
@@ -258,19 +252,12 @@ class ScriptExecutor:
         if not img_path:
             return False
         
-        template = self.image_matcher.load_template(str(img_path))
-        if not template:
+        try:
+            # 使用 pyautogui.locateOnScreen 检查
+            location = pyautogui.locateOnScreen(str(img_path), confidence=confidence)
+            return location is not None
+        except Exception:
             return False
-        
-        if self.current_window:
-            screen = self.screen_manager.get_screen_region(
-                self.current_window, 0, 0,
-                self.current_window.width, self.current_window.height
-            )
-            result = self.image_matcher.find_template(screen, template, confidence)
-            return result is not None
-        
-        return False
     
     def _resolve_image_path(self, name: str, script_dir: Optional[Path] = None) -> Optional[Path]:
         """解析图片路径"""
