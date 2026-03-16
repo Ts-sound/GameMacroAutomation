@@ -204,31 +204,33 @@ class ScriptExecutor:
                 except (TypeError, ValueError):
                     offset_x, offset_y = 0, 0
                 
-                self.log(f"offset 转换后：({offset_x}, {offset_y})")
+                self.log(f"offset 值：({offset_x}, {offset_y})")
                 
                 if offset_x > 1000:
-                    # 直接使用屏幕坐标点击
-                    if self.input_controller:
-                        scaled_x = int(offset_x * self.scale_factor)
-                        scaled_y = int(offset_y * self.scale_factor)
-                        self.input_controller.click(scaled_x, scaled_y)
-                    self.log(f"点击屏幕位置：{name} ({offset_x}, {offset_y}) -> 缩放后 ({scaled_x}, {scaled_y})")
-                    return
+                    # 直接使用屏幕坐标点击（图像识别失败时的 fallback）
+                    self.log(f"检测到屏幕坐标，先尝试图像识别，失败后使用 fallback")
+                    # 继续执行图像识别，如果失败再使用屏幕坐标
+                else:
+                    self.log(f"检测到相对偏移，使用图像识别")
             
             # 使用图像识别定位
             if self.current_window:
-                self.log(f"开始图像识别...")
+                self.log(f"开始图像识别，窗口尺寸：{self.current_window.width}x{self.current_window.height}")
                 screen = self.screen_manager.get_screen_region(
                     self.current_window, 0, 0,
                     self.current_window.width, self.current_window.height
                 )
+                self.log(f"截图尺寸：{screen.width}x{screen.height}")
+                self.log(f"模板尺寸：{template.shape[1]}x{template.shape[0]}")
                 result = self.image_matcher.find_template(screen, template, confidence)
                 
                 if result is not None:
-                    self.log(f"图像识别成功：x={result.x}, y={result.y}, confidence={result.confidence}")
+                    self.log(f"图像识别成功：x={result.x}, y={result.y}, w={result.width}, h={result.height}, confidence={result.confidence}")
+                    self.log(f"识别区域中心：{result.center}")
                     x = int(result.center[0])
                     y = int(result.center[1])
-                    if offset is not None and len(offset) == 2:
+                    # 如果有相对偏移（小数值），加上偏移
+                    if offset is not None and len(offset) == 2 and int(offset[0]) < 1000:
                         try:
                             x += int(offset[0])
                             y += int(offset[1])
@@ -238,6 +240,7 @@ class ScriptExecutor:
                         self.input_controller.click(x, y)
                     self.log(f"点击图片：{name} ({x}, {y})")
                 else:
+                    self.log(f"图像识别失败，未找到匹配")
                     # 图像识别失败，如果有屏幕坐标则使用屏幕坐标
                     if offset is not None and len(offset) == 2:
                         try:
@@ -247,7 +250,7 @@ class ScriptExecutor:
                                     scaled_x = int(offset_x * self.scale_factor)
                                     scaled_y = int(offset_y * self.scale_factor)
                                     self.input_controller.click(scaled_x, scaled_y)
-                                self.log(f"图像识别失败，使用屏幕坐标：{name} ({scaled_x}, {scaled_y})")
+                                self.log(f"使用屏幕坐标 fallback: {name} ({offset_x}, {offset_y}) -> 缩放后 ({scaled_x}, {scaled_y})")
                                 return
                         except Exception as e:
                             self.log(f"fallback 失败：{e}", "ERROR")
