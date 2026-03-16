@@ -177,7 +177,13 @@ class ScriptExecutor:
         return False
     
     def _click_image(self, name: str, confidence: float = 0.9, offset=None):
-        """点击图片"""
+        """
+        点击图片
+        
+        逻辑：
+        1. 优先使用图像识别定位
+        2. 图像识别失败时，使用存储的屏幕坐标（offset）作为 fallback
+        """
         import traceback
         
         try:
@@ -197,23 +203,7 @@ class ScriptExecutor:
             
             self.log(f"模板加载成功，shape={template.shape}")
             
-            # 检查 offset 是否是屏幕坐标（大于 1000 认为是屏幕坐标）
-            if offset is not None and len(offset) == 2:
-                try:
-                    offset_x, offset_y = int(offset[0]), int(offset[1])
-                except (TypeError, ValueError):
-                    offset_x, offset_y = 0, 0
-                
-                self.log(f"offset 值：({offset_x}, {offset_y})")
-                
-                if offset_x > 1000:
-                    # 直接使用屏幕坐标点击（图像识别失败时的 fallback）
-                    self.log(f"检测到屏幕坐标，先尝试图像识别，失败后使用 fallback")
-                    # 继续执行图像识别，如果失败再使用屏幕坐标
-                else:
-                    self.log(f"检测到相对偏移，使用图像识别")
-            
-            # 使用图像识别定位
+            # 优先使用图像识别
             if self.current_window:
                 self.log(f"开始图像识别，窗口尺寸：{self.current_window.width}x{self.current_window.height}")
                 screen = self.screen_manager.get_screen_region(
@@ -229,32 +219,28 @@ class ScriptExecutor:
                     self.log(f"识别区域中心：{result.center}")
                     x = int(result.center[0])
                     y = int(result.center[1])
-                    # 如果有相对偏移（小数值），加上偏移
-                    if offset is not None and len(offset) == 2 and int(offset[0]) < 1000:
-                        try:
-                            x += int(offset[0])
-                            y += int(offset[1])
-                        except (TypeError, ValueError):
-                            pass
                     if self.input_controller:
                         self.input_controller.click(x, y)
-                    self.log(f"点击图片：{name} ({x}, {y})")
+                    self.log(f"点击图片（图像识别）：{name} ({x}, {y})")
+                    return
                 else:
                     self.log(f"图像识别失败，未找到匹配")
-                    # 图像识别失败，如果有屏幕坐标则使用屏幕坐标
-                    if offset is not None and len(offset) == 2:
-                        try:
-                            offset_x, offset_y = int(offset[0]), int(offset[1])
-                            if offset_x > 1000:
-                                if self.input_controller:
-                                    scaled_x = int(offset_x * self.scale_factor)
-                                    scaled_y = int(offset_y * self.scale_factor)
-                                    self.input_controller.click(scaled_x, scaled_y)
-                                self.log(f"使用屏幕坐标 fallback: {name} ({offset_x}, {offset_y}) -> 缩放后 ({scaled_x}, {scaled_y})")
-                                return
-                        except Exception as e:
-                            self.log(f"fallback 失败：{e}", "ERROR")
-                    self.log(f"未找到图片：{name} (confidence < {confidence})", "ERROR")
+            
+            # 图像识别失败，使用存储的屏幕坐标作为 fallback
+            if offset is not None and len(offset) == 2:
+                try:
+                    screen_x, screen_y = int(offset[0]), int(offset[1])
+                    if self.input_controller:
+                        # 应用缩放因子
+                        scaled_x = int(screen_x * self.scale_factor)
+                        scaled_y = int(screen_y * self.scale_factor)
+                        self.input_controller.click(scaled_x, scaled_y)
+                    self.log(f"点击图片（屏幕坐标 fallback）：{name} ({screen_x}, {screen_y}) -> 缩放后 ({scaled_x}, {scaled_y})")
+                    return
+                except Exception as e:
+                    self.log(f"fallback 失败：{e}", "ERROR")
+            
+            self.log(f"未找到图片：{name}", "ERROR")
         
         except Exception as e:
             self.log(f"_click_image 异常：{e}", "ERROR")
