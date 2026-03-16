@@ -1,9 +1,8 @@
-"""图像识别模块 - OpenCV 模板匹配"""
+"""图像识别模块 - 使用 pyautogui 进行模板匹配"""
 from dataclasses import dataclass
 from typing import Optional, List
 from pathlib import Path
-import cv2
-import numpy as np
+import pyautogui
 from PIL import Image
 
 
@@ -23,7 +22,7 @@ class MatchResult:
 
 
 class ImageMatcher:
-    """图像匹配器"""
+    """图像匹配器 - 使用 pyautogui.locateCenterOnScreen"""
     
     def __init__(self, default_confidence: float = 0.8):
         """
@@ -31,9 +30,9 @@ class ImageMatcher:
             default_confidence: 默认匹配置信度阈值
         """
         self.default_confidence = default_confidence
-        self._template_cache: dict[str, np.ndarray] = {}
+        self._template_cache: dict[str, Image.Image] = {}
     
-    def load_template(self, path: str) -> Optional[np.ndarray]:
+    def load_template(self, path: str) -> Optional[Image.Image]:
         """
         加载模板图片
         
@@ -41,7 +40,7 @@ class ImageMatcher:
             path: 图片路径
         
         Returns:
-            OpenCV numpy 数组或 None
+            PIL Image 或 None
         """
         # 检查缓存
         if path in self._template_cache:
@@ -51,13 +50,10 @@ class ImageMatcher:
         if not Path(path).exists():
             return None
         
-        # PIL 转 OpenCV
+        # 加载并缓存
         pil_img = Image.open(path)
-        cv_img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-        
-        # 缓存
-        self._template_cache[path] = cv_img
-        return cv_img
+        self._template_cache[path] = pil_img
+        return pil_img
     
     def clear_cache(self):
         """清除模板缓存"""
@@ -66,15 +62,17 @@ class ImageMatcher:
     def find_template(
         self,
         screen: Image.Image,
-        template: np.ndarray,
+        template: Image.Image,
         confidence: Optional[float] = None
     ) -> Optional[MatchResult]:
         """
         在屏幕图像中查找模板
         
+        注意：此方法会临时保存截图并调用 pyautogui.locateCenterOnScreen
+        
         Args:
             screen: 屏幕截图 (PIL Image)
-            template: 模板图片 (OpenCV numpy)
+            template: 模板图片 (PIL Image)
             confidence: 置信度阈值
         
         Returns:
@@ -83,38 +81,33 @@ class ImageMatcher:
         if confidence is None:
             confidence = self.default_confidence
         
-        # 检查模板尺寸是否小于截图
-        if template.shape[0] > screen.height or template.shape[1] > screen.width:
-            # 模板比截图大，缩小模板
-            scale = min(screen.width / template.shape[1], screen.height / template.shape[0])
-            new_width = int(template.shape[1] * scale * 0.9)  # 90% 保证小于截图
-            new_height = int(template.shape[0] * scale * 0.9)
-            template = cv2.resize(template, (new_width, new_height))
-        
-        # 转屏幕为 OpenCV
-        screen_cv = cv2.cvtColor(np.array(screen), cv2.COLOR_RGB2BGR)
-        
-        # 模板匹配
-        result = cv2.matchTemplate(screen_cv, template, cv2.TM_CCOEFF_NORMED)
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-        
-        # 检查置信度
-        if max_val >= confidence:
-            h, w = template.shape[:2]
-            return MatchResult(
-                x=int(max_loc[0]),
-                y=int(max_loc[1]),
-                width=w,
-                height=h,
-                confidence=float(max_val)
-            )
+        # 使用 pyautogui.locateCenterOnScreen 进行匹配
+        # 注意：需要传入模板图片路径或 Image 对象
+        try:
+            # pyautogui 直接在内存 Image 上工作
+            location = pyautogui.locate(screen, template, confidence=confidence)
+            
+            if location:
+                # location 是 (x, y, width, height) 元组
+                x, y, w, h = location
+                center_x, center_y = x + w // 2, y + h // 2
+                return MatchResult(
+                    x=center_x,
+                    y=center_y,
+                    width=w,
+                    height=h,
+                    confidence=confidence
+                )
+        except Exception as e:
+            # pyautogui 可能抛出异常，返回 None
+            pass
         
         return None
     
     def find_all_templates(
         self,
         screen: Image.Image,
-        template: np.ndarray,
+        template: Image.Image,
         confidence: Optional[float] = None,
         max_results: int = 10
     ) -> List[MatchResult]:
@@ -133,35 +126,33 @@ class ImageMatcher:
         if confidence is None:
             confidence = self.default_confidence
         
-        screen_cv = cv2.cvtColor(np.array(screen), cv2.COLOR_RGB2BGR)
-        result = cv2.matchTemplate(screen_cv, template, cv2.TM_CCOEFF_NORMED)
-        
         matches = []
-        h, w = template.shape[:2]
         
-        # 找到所有超过阈值的匹配
-        locations = np.where(result >= confidence)
-        
-        for pt in zip(*locations[::-1]):
-            matches.append(MatchResult(
-                x=int(pt[0]),
-                y=int(pt[1]),
-                width=w,
-                height=h,
-                confidence=float(result[pt[1], pt[0]])
-            ))
+        try:
+            # 使用 locateAll 查找所有匹配
+            locations = pyautogui.locateAll(screen, template, confidence=confidence)
             
-            if len(matches) >= max_results:
-                break
+            for i, location in enumerate(locations):
+                if i >= max_results:
+                    break
+                x, y, w, h = location
+                center_x, center_y = x + w // 2, y + h // 2
+                matches.append(MatchResult(
+                    x=center_x,
+                    y=center_y,
+                    width=w,
+                    height=h,
+                    confidence=confidence
+                ))
+        except Exception:
+            pass
         
-        # 按置信度排序
-        matches.sort(key=lambda m: m.confidence, reverse=True)
         return matches
     
     def template_exists(
         self,
         screen: Image.Image,
-        template: np.ndarray,
+        template: Image.Image,
         confidence: Optional[float] = None
     ) -> bool:
         """
@@ -177,3 +168,37 @@ class ImageMatcher:
         """
         result = self.find_template(screen, template, confidence)
         return result is not None
+    
+    def locate_on_screen(self, template_path: str, confidence: float = 0.9) -> Optional[tuple]:
+        """
+        直接在屏幕上查找模板（便捷方法）
+        
+        Args:
+            template_path: 模板图片路径
+            confidence: 置信度阈值
+        
+        Returns:
+            (x, y, width, height) 或 None
+        """
+        try:
+            location = pyautogui.locateOnScreen(template_path, confidence=confidence)
+            return location
+        except Exception:
+            return None
+    
+    def locate_center_on_screen(self, template_path: str, confidence: float = 0.9) -> Optional[tuple]:
+        """
+        在屏幕上查找模板并返回中心点（便捷方法）
+        
+        Args:
+            template_path: 模板图片路径
+            confidence: 置信度阈值
+        
+        Returns:
+            (center_x, center_y) 或 None
+        """
+        try:
+            location = pyautogui.locateCenterOnScreen(template_path, confidence=confidence)
+            return location
+        except Exception:
+            return None

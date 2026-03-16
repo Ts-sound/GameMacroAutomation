@@ -1,5 +1,6 @@
 """脚本执行器模块"""
 import logging
+import pyautogui
 from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import datetime
@@ -181,7 +182,7 @@ class ScriptExecutor:
     
     def _click_image(self, name: str, confidence: float = 0.7, offset=None):
         """
-        点击图片
+        点击图片 - 使用 pyautogui.locateCenterOnScreen
         
         逻辑：
         1. 优先使用图像识别定位（置信度 0.7）
@@ -202,73 +203,50 @@ class ScriptExecutor:
             
             self.log(f"[识别] 图片路径：{img_path}", "DEBUG")
             
-            template = self.image_matcher.load_template(str(img_path))
-            if template is None:
-                self.log(f"[识别] 无法加载图片：{name}", "ERROR")
+            # 使用 pyautogui.locateCenterOnScreen 直接识别
+            self.log(f"[识别] 使用 pyautogui.locateCenterOnScreen (confidence={confidence})", "DEBUG")
+            match_start = time.time()
+            
+            # 方法 1：直接在屏幕上查找
+            location = pyautogui.locateCenterOnScreen(str(img_path), confidence=confidence)
+            match_time = (time.time() - match_start) * 1000
+            self.log(f"[识别] 匹配耗时：{match_time:.1f}ms", "DEBUG")
+            
+            if location:
+                elapsed = (time.time() - start_time) * 1000
+                x, y = location
+                self.log(
+                    f"[识别] ✓ 成功 | {name} | "
+                    f"pos=({x},{y}) | "
+                    f"耗时={elapsed:.1f}ms",
+                    "INFO"
+                )
+                if self.input_controller:
+                    self.input_controller.click_with_move(x, y)
+                self.log(f"[点击] ✓ 图像识别点击：{name} -> ({x}, {y})", "INFO")
                 return
             
-            self.log(f"[识别] 模板加载成功：{template.shape}", "DEBUG")
+            # 尝试降低置信度
+            self.log(f"[识别] 未找到匹配 (confidence={confidence})，尝试低阈值 (0.5)...", "DEBUG")
+            match_start = time.time()
+            location = pyautogui.locateCenterOnScreen(str(img_path), confidence=0.5)
+            match_time = (time.time() - match_start) * 1000
             
-            # 优先使用图像识别
-            if self.current_window:
-                self.log(f"[识别] 窗口：{self.current_window.width}x{self.current_window.height}", "DEBUG")
-                
-                screen = self.screen_manager.get_screen_region(
-                    self.current_window, 0, 0,
-                    self.current_window.width, self.current_window.height
+            if location:
+                elapsed = (time.time() - start_time) * 1000
+                x, y = location
+                self.log(
+                    f"[识别] ⚠ 低置信度 | {name} | "
+                    f"pos=({x},{y}) | "
+                    f"耗时={elapsed:.1f}ms",
+                    "WARNING"
                 )
-                
-                self.log(f"[识别] 截图：{screen.width}x{screen.height}", "DEBUG")
-                self.log(f"[识别] 模板：{template.shape[1]}x{template.shape[0]}", "DEBUG")
-                
-                # 尝试查找匹配
-                self.log(f"[识别] 查找匹配 (threshold={confidence})...", "DEBUG")
-                match_start = time.time()
-                result = self.image_matcher.find_template(screen, template, confidence)
-                match_time = (time.time() - match_start) * 1000
-                self.log(f"[识别] 匹配耗时：{match_time:.1f}ms", "DEBUG")
-                
-                if result is not None:
-                    elapsed = (time.time() - start_time) * 1000
-                    self.log(
-                        f"[识别] ✓ 成功 | {name} | "
-                        f"pos=({result.x},{result.y}) | "
-                        f"size={result.width}x{result.height} | "
-                        f"conf={result.confidence:.3f} | "
-                        f"center={result.center} | "
-                        f"耗时={elapsed:.1f}ms",
-                        "INFO"
-                    )
-                    x = int(result.center[0])
-                    y = int(result.center[1])
-                    if self.input_controller:
-                        self.input_controller.click_with_move(x, y)
-                    self.log(f"[点击] ✓ 图像识别点击：{name} -> ({x}, {y})", "INFO")
-                    return
-                else:
-                    # 尝试降低置信度再试一次
-                    self.log(f"[识别] 未找到匹配 (threshold={confidence})，尝试低阈值 (0.5)...", "DEBUG")
-                    match_start = time.time()
-                    result = self.image_matcher.find_template(screen, template, 0.5)
-                    match_time = (time.time() - match_start) * 1000
-                    
-                    if result:
-                        elapsed = (time.time() - start_time) * 1000
-                        self.log(
-                            f"[识别] ⚠ 低置信度 | {name} | "
-                            f"pos=({result.x},{result.y}) | "
-                            f"conf={result.confidence:.3f} | "
-                            f"耗时={elapsed:.1f}ms",
-                            "WARNING"
-                        )
-                        x = int(result.center[0])
-                        y = int(result.center[1])
-                        if self.input_controller:
-                            self.input_controller.click_with_move(x, y)
-                        self.log(f"[点击] ⚠ 低置信度点击：{name} -> ({x}, {y})", "WARNING")
-                        return
-                    
-                    self.log(f"[识别] ✗ 失败：{name} (未找到匹配)", "WARNING")
+                if self.input_controller:
+                    self.input_controller.click_with_move(x, y)
+                self.log(f"[点击] ⚠ 低置信度点击：{name} -> ({x}, {y})", "WARNING")
+                return
+            
+            self.log(f"[识别] ✗ 失败：{name} (未找到匹配)", "WARNING")
             
             # 图像识别失败，使用存储的屏幕坐标作为 fallback
             if offset is not None and len(offset) == 2:
