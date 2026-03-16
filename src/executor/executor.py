@@ -176,18 +176,18 @@ class ScriptExecutor:
         self.log(f"等待超时：{name}", "WARNING")
         return False
     
-    def _click_image(self, name: str, confidence: float = 0.9, offset=None):
+    def _click_image(self, name: str, confidence: float = 0.7, offset=None):
         """
         点击图片
         
         逻辑：
-        1. 优先使用图像识别定位
+        1. 优先使用图像识别定位（置信度 0.7）
         2. 图像识别失败时，使用存储的屏幕坐标（offset）作为 fallback
         """
         import traceback
         
         try:
-            self.log(f"_click_image 开始：name={name}, offset={offset}")
+            self.log(f"_click_image 开始：name={name}, offset={offset}, confidence={confidence}")
             
             img_path = self._resolve_image_path(name, self.current_script_dir)
             if img_path is None:
@@ -212,19 +212,32 @@ class ScriptExecutor:
                 )
                 self.log(f"截图尺寸：{screen.width}x{screen.height}")
                 self.log(f"模板尺寸：{template.shape[1]}x{template.shape[0]}")
+                
+                # 尝试查找匹配
                 result = self.image_matcher.find_template(screen, template, confidence)
                 
                 if result is not None:
-                    self.log(f"图像识别成功：x={result.x}, y={result.y}, w={result.width}, h={result.height}, confidence={result.confidence}")
-                    self.log(f"识别区域中心：{result.center}")
+                    self.log(f"✓ 图像识别成功：pos=({result.x},{result.y}), size={result.width}x{result.height}, confidence={result.confidence:.3f}")
+                    self.log(f"  识别区域中心：{result.center}")
                     x = int(result.center[0])
                     y = int(result.center[1])
                     if self.input_controller:
                         self.input_controller.click(x, y)
-                    self.log(f"点击图片（图像识别）：{name} ({x}, {y})")
+                    self.log(f"✓ 点击图片（图像识别）：{name} ({x}, {y})")
                     return
                 else:
-                    self.log(f"图像识别失败，未找到匹配")
+                    # 尝试降低置信度再试一次
+                    self.log(f"图像识别失败 (confidence<{confidence})，尝试降低阈值...")
+                    result = self.image_matcher.find_template(screen, template, 0.5)
+                    if result:
+                        self.log(f"⚠ 低置信度匹配：pos=({result.x},{result.y}), confidence={result.confidence:.3f}")
+                        x = int(result.center[0])
+                        y = int(result.center[1])
+                        if self.input_controller:
+                            self.input_controller.click(x, y)
+                        self.log(f"⚠ 点击图片（低置信度）：{name} ({x}, {y})")
+                        return
+                    self.log(f"✗ 图像识别失败，未找到匹配")
             
             # 图像识别失败，使用存储的屏幕坐标作为 fallback
             if offset is not None and len(offset) == 2:
@@ -235,12 +248,12 @@ class ScriptExecutor:
                         scaled_x = int(screen_x * self.scale_factor)
                         scaled_y = int(screen_y * self.scale_factor)
                         self.input_controller.click(scaled_x, scaled_y)
-                    self.log(f"点击图片（屏幕坐标 fallback）：{name} ({screen_x}, {screen_y}) -> 缩放后 ({scaled_x}, {scaled_y})")
+                    self.log(f"→ 点击图片（屏幕坐标 fallback）：{name} ({screen_x}, {screen_y}) -> 缩放后 ({scaled_x}, {scaled_y})")
                     return
                 except Exception as e:
                     self.log(f"fallback 失败：{e}", "ERROR")
             
-            self.log(f"未找到图片：{name}", "ERROR")
+            self.log(f"✗ 未找到图片：{name}", "ERROR")
         
         except Exception as e:
             self.log(f"_click_image 异常：{e}", "ERROR")
