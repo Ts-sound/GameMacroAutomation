@@ -441,6 +441,14 @@ class ScriptExecutor:
                         self.input_controller.press(key)
                         self.log(f"按键：{key}")
                 
+                elif action_type == "scroll":
+                    x = action.get("x", 0)
+                    y = action.get("y", 0)
+                    clicks = action.get("clicks", 1)
+                    if self.input_controller:
+                        self.input_controller.scroll(clicks, x, y)
+                    self.log(f"滚轮：({x}, {y}) {clicks}")
+                
                 elif action_type == "delay":
                     ms = action.get("ms", 0)
                     if self.input_controller:

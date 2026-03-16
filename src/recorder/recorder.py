@@ -222,6 +222,15 @@ class ScriptRecorder:
                         "y": action.y,
                         "button": action.button
                     })
+            
+            elif action.action_type == "mouse_scroll":
+                # 滚轮动作
+                yaml_actions.append({
+                    "type": "scroll",
+                    "x": action.x,
+                    "y": action.y,
+                    "clicks": 1 if action.button == "up" else -1
+                })
                     
             elif action.action_type == "key_press":
                 if action.key:  # 忽略空按键

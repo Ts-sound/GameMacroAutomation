@@ -301,6 +301,24 @@ class InputRecorder:
         self.actions.append(action)
         print(f"[录制] 鼠标点击：({x}, {y}) {button.name}")
     
+    def _on_scroll(self, x, y, dx, dy):
+        """鼠标滚轮回调"""
+        if not self.is_recording:
+            return
+        
+        # dy > 0 向上滚动，dy < 0 向下滚动
+        if dy != 0:
+            action = RecordedAction(
+                timestamp=self._get_relative_time(),
+                action_type="mouse_scroll",
+                x=x,
+                y=y,
+                button="up" if dy > 0 else "down"
+            )
+            self.actions.append(action)
+            direction = "上" if dy > 0 else "下"
+            print(f"[录制] 鼠标滚轮：({x}, {y}) {direction}")
+    
     def _on_move(self, x, y):
         """鼠标移动回调 (可选，通常不录制移动)"""
         pass
@@ -341,7 +359,8 @@ class InputRecorder:
         # 启动监听器
         self._mouse_listener = mouse.Listener(
             on_click=self._on_click,
-            on_move=self._on_move
+            on_move=self._on_move,
+            on_scroll=self._on_scroll
         )
         self._keyboard_listener = keyboard.Listener(
             on_press=self._on_key_press
