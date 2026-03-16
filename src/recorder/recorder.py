@@ -69,22 +69,29 @@ class ScriptRecorder:
         if not self.current_window:
             return None
         
+        # 重新获取窗口位置（窗口可能被移动）
+        current_window = self.screen_manager.find_window(self.current_window.title)
+        if not current_window:
+            print(f"警告：窗口 {self.current_window.title} 已关闭")
+            return None
+        
         # 计算相对窗口坐标
-        rel_x = x - self.current_window.left
-        rel_y = y - self.current_window.top
+        rel_x = x - current_window.left
+        rel_y = y - current_window.top
         
         # 检查坐标是否在窗口内
-        if (rel_x < 0 or rel_x >= self.current_window.width or
-            rel_y < 0 or rel_y >= self.current_window.height):
-            print(f"警告：点击位置 ({x}, {y}) 超出窗口范围")
-            return None
+        if (rel_x < 0 or rel_x >= current_window.width or
+            rel_y < 0 or rel_y >= current_window.height):
+            print(f"警告：点击位置 ({x}, {y}) 超出窗口范围 (窗口：{current_window.left},{current_window.top} {current_window.width}x{current_window.height})")
+            # 仍然尝试截图，使用屏幕坐标
+            return self._capture_screen_region(x, y)
         
         # 计算截图区域（以点击点为中心）
         half_size = self.screenshot_size // 2
         x1 = max(0, rel_x - half_size)
         y1 = max(0, rel_y - half_size)
-        x2 = min(self.current_window.width, x1 + self.screenshot_size)
-        y2 = min(self.current_window.height, y1 + self.screenshot_size)
+        x2 = min(current_window.width, x1 + self.screenshot_size)
+        y2 = min(current_window.height, y1 + self.screenshot_size)
         
         # 调整 x1, y1 确保截图尺寸为 screenshot_size x screenshot_size
         if x2 - x1 < self.screenshot_size:
@@ -92,12 +99,37 @@ class ScriptRecorder:
         if y2 - y1 < self.screenshot_size:
             y1 = max(0, y2 - self.screenshot_size)
         
-        # 截图
+        # 截图（窗口内区域）
         screenshot = self.screen_manager.get_screen_region(
-            self.current_window, x1, y1, x2 - x1, y2 - y1
+            current_window, x1, y1, x2 - x1, y2 - y1
         )
         
         # 保存截图
+        self.click_counter += 1
+        filename = f"click_{self.click_counter:03d}.png"
+        filepath = self.images_dir / filename
+        screenshot.save(str(filepath))
+        
+        return filename
+    
+    def _capture_screen_region(self, x: int, y: int) -> Optional[str]:
+        """
+        截取屏幕区域（当点击超出窗口时使用）
+        
+        Args:
+            x, y: 屏幕绝对坐标
+        
+        Returns:
+            保存的图片文件名
+        """
+        half_size = self.screenshot_size // 2
+        x1 = max(0, x - half_size)
+        y1 = max(0, y - half_size)
+        
+        # 直接截取屏幕区域
+        from PIL import ImageGrab
+        screenshot = ImageGrab.grab(bbox=(x1, y1, x1 + self.screenshot_size, y1 + self.screenshot_size))
+        
         self.click_counter += 1
         filename = f"click_{self.click_counter:03d}.png"
         filepath = self.images_dir / filename
