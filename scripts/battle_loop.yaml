@@ -1,0 +1,27 @@
+# 战斗循环脚本配置
+meta:
+  name: "战斗循环"
+  version: "1.0"
+  description: "使用 Lua 控制条件循环执行战斗流程"
+  created_by: "manual"
+
+config:
+  window_title: "游戏窗口"
+  log_level: "INFO"
+  retry_times: 3
+  default_timeout: 5000
+
+assets:
+  images:
+    boss_hp_bar: "assets/templates/boss_hp.png"
+    low_hp_warning: "assets/templates/low_hp.png"
+    attack_btn: "assets/templates/attack_btn.png"
+    item_1: "assets/templates/item_1.png"
+    reward_popup: "assets/templates/reward_popup.png"
+    collect_btn: "assets/templates/collect_btn.png"
+
+scripts:
+  potion: "potion.yaml"
+
+# Lua 脚本文件
+lua_script: "scripts/battle_loop.lua"

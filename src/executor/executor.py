@@ -140,13 +140,79 @@ class ScriptExecutor:
         def log_message(message: str, level: str = "INFO"):
             self.log(message, level)
         
+        # 注册 loop_while - 条件循环
+        def loop_while(condition_func, body_func, max_iterations: int = 100, check_interval: int = 1000):
+            """
+            条件循环
+            
+            Args:
+                condition_func: 条件函数，返回 true 继续循环
+                body_func: 循环体函数
+                max_iterations: 最大循环次数
+                check_interval: 条件检查间隔 (ms)
+            """
+            import time
+            for i in range(max_iterations):
+                if not condition_func():
+                    self.log(f"循环结束：条件不满足 (第{i+1}次)", "DEBUG")
+                    break
+                body_func()
+                time.sleep(check_interval / 1000.0)
+            else:
+                self.log(f"循环结束：达到最大次数 {max_iterations}", "WARNING")
+        
+        # 注册 loop_times - 固定次数循环
+        def loop_times(count: int, body_func, delay_ms: int = 0):
+            """
+            固定次数循环
+            
+            Args:
+                count: 循环次数
+                body_func: 循环体函数
+                delay_ms: 每次循环间隔 (ms)
+            """
+            import time
+            for i in range(count):
+                self.log(f"循环 {i+1}/{count}", "DEBUG")
+                body_func()
+                if delay_ms > 0:
+                    time.sleep(delay_ms / 1000.0)
+        
+        # 注册 loop_until - 直到条件满足
+        def loop_until(condition_func, body_func, timeout: int = 30000, check_interval: int = 1000):
+            """
+            直到条件满足才停止的循环
+            
+            Args:
+                condition_func: 条件函数，返回 true 停止循环
+                body_func: 循环体函数
+                timeout: 超时时间 (ms)
+                check_interval: 条件检查间隔 (ms)
+            """
+            import time
+            start_time = time.time()
+            iterations = 0
+            while True:
+                if condition_func():
+                    self.log(f"循环结束：条件满足 (第{iterations+1}次)", "DEBUG")
+                    break
+                if (time.time() - start_time) * 1000 > timeout:
+                    self.log(f"循环结束：超时 {timeout}ms", "WARNING")
+                    break
+                body_func()
+                iterations += 1
+                time.sleep(check_interval / 1000.0)
+        
         self.lua_bridge.register_functions({
             "wait_image": wait_image,
             "click_image": click_image,
             "image_exists": image_exists,
             "run_script": run_script,
             "delay": delay,
-            "log": log_message
+            "log": log_message,
+            "loop_while": loop_while,
+            "loop_times": loop_times,
+            "loop_until": loop_until,
         })
     
     def _wait_image(self, name: str, timeout: int = 5000) -> bool:
