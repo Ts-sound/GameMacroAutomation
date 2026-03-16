@@ -35,6 +35,7 @@ class ScriptExecutor:
         self._logger: Optional[logging.Logger] = None
         self.current_window: Optional[WindowInfo] = None
         self.scale_factor: float = 1.0
+        self.current_script_dir: Optional[Path] = None  # 当前脚本目录
     
     def setup_logging(self, log_level: str = "INFO", log_file: Optional[str] = None):
         """设置日志"""
@@ -177,7 +178,7 @@ class ScriptExecutor:
     
     def _click_image(self, name: str, confidence: float = 0.9, offset: tuple[int, int] = (0, 0)):
         """点击图片"""
-        img_path = self._resolve_image_path(name)
+        img_path = self._resolve_image_path(name, self.current_script_dir)
         if not img_path:
             self.log(f"图片不存在：{name}", "ERROR")
             return
@@ -222,9 +223,15 @@ class ScriptExecutor:
         
         return False
     
-    def _resolve_image_path(self, name: str) -> Optional[Path]:
+    def _resolve_image_path(self, name: str, script_dir: Optional[Path] = None) -> Optional[Path]:
         """解析图片路径"""
-        # 先在 assets/templates 中查找
+        # 先在脚本目录的 images 文件夹中查找（录制器生成的图片）
+        if script_dir:
+            local_path = script_dir / "images" / f"{name}.png"
+            if local_path.exists():
+                return local_path
+        
+        # 再在 assets/templates 中查找
         template_path = self.assets_dir / "templates" / f"{name}.png"
         if template_path.exists():
             return template_path
@@ -269,6 +276,9 @@ class ScriptExecutor:
         script = self.load_script(yaml_path)
         self.log(f"脚本名称：{script.meta.name}")
         
+        # 设置当前脚本目录（用于查找 images 文件夹）
+        self.current_script_dir = Path(yaml_path).parent
+        
         # 设置窗口
         if script.config.window_title:
             if not self.setup_window(script.config.window_title):
@@ -291,7 +301,68 @@ class ScriptExecutor:
                 self.log(f"Lua 脚本不存在：{script.lua_script}", "ERROR")
                 return False
         
+        # 没有 Lua 脚本时，直接执行 actions 数组
+        if script.actions:
+            self.log(f"执行 {len(script.actions)} 个动作")
+            return self._execute_actions(script.actions, script.config.on_error)
+        
         self.log("脚本执行完成")
+        return True
+    
+    def _execute_actions(self, actions: list, on_error: str = "stop") -> bool:
+        """
+        执行动作列表
+        
+        Args:
+            actions: 动作列表
+            on_error: 错误处理策略
+        
+        Returns:
+            是否成功
+        """
+        for i, action in enumerate(actions):
+            action_type = action.get("type")
+            
+            try:
+                if action_type == "click_image":
+                    img_name = action.get("image")
+                    offset = action.get("offset", [0, 0])
+                    self._click_image(img_name, 0.8, tuple(offset))
+                
+                elif action_type == "click":
+                    x = action.get("x", 0)
+                    y = action.get("y", 0)
+                    button = action.get("button", "left")
+                    if self.input_controller:
+                        self.input_controller.click(x, y, button)
+                    self.log(f"点击 ({x}, {y}) {button}")
+                
+                elif action_type == "keypress":
+                    key = action.get("key")
+                    if key and self.input_controller:
+                        self.input_controller.press(key)
+                        self.log(f"按键：{key}")
+                
+                elif action_type == "delay":
+                    ms = action.get("ms", 0)
+                    if self.input_controller:
+                        self.input_controller.delay(ms)
+                
+                elif action_type == "log":
+                    msg = action.get("message", "")
+                    level = action.get("level", "INFO")
+                    self.log(msg, level)
+                
+                else:
+                    self.log(f"未知动作类型：{action_type}", "WARNING")
+                
+                self.log(f"动作 {i+1}/{len(actions)} 完成：{action_type}")
+                
+            except Exception as e:
+                self.log(f"动作 {i+1} 执行失败：{e}", "ERROR")
+                if on_error == "stop":
+                    return False
+        
         return True
 
 
