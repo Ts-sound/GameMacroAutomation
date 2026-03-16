@@ -1,5 +1,11 @@
 # Lua 循环控制使用指南
 
+## 示例脚本
+
+完整示例请参考：
+- `docs/examples/battle_loop.lua` - Lua 脚本示例
+- `docs/examples/battle_loop.yaml` - YAML 配置示例
+
 ## API 概览
 
 ### 1. `loop_while(condition, body, max_iterations, interval)`
