@@ -46,11 +46,11 @@ class ScriptValidator:
         if not script.meta.name:
             errors.append("缺少必需的 meta.name 字段")
         
-        # 验证 Lua 脚本存在
-        if script.lua_script:
-            lua_path = self.scripts_dir / script.lua_script
-            if not lua_path.exists():
-                errors.append(f"Lua 脚本不存在：{lua_path}")
+        # 验证 Python 脚本存在
+        if script.python_script:
+            python_path = Path(yaml_path).parent / script.python_script
+            if not python_path.exists():
+                errors.append(f"Python 脚本不存在：{python_path}")
         
         # 验证子脚本引用
         for name, sub_script in script.scripts.items():
@@ -108,9 +108,9 @@ class ScriptValidator:
                 visited.add(path_str)
                 tree += self.show_dependency_tree(path_str, indent + 1, visited)
         
-        # 添加 Lua 脚本
-        if script.lua_script:
-            tree += "  " * (indent + 1) + f"├─ {script.lua_script} (Lua)\n"
+        # 添加 Python 脚本
+        if script.python_script:
+            tree += "  " * (indent + 1) + f"├─ {script.python_script} (Python)\n"
         
         return tree
 
