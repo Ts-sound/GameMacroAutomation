@@ -177,14 +177,7 @@ class ScriptExecutor:
         return False
     
     def _click_image(self, name: str, confidence: float = 0.9, offset=None):
-        """
-        点击图片
-        
-        Args:
-            name: 图片名称
-            confidence: 置信度
-            offset: 如果是屏幕坐标（大数值）则直接使用，否则作为相对偏移
-        """
+        """点击图片"""
         img_path = self._resolve_image_path(name, self.current_script_dir)
         if not img_path:
             self.log(f"图片不存在：{name}", "ERROR")
@@ -196,25 +189,19 @@ class ScriptExecutor:
             return
         
         # 检查 offset 是否是屏幕坐标（大于 1000 认为是屏幕坐标）
-        if offset is not None:
-            # 转换为列表以处理 numpy 数组
+        if offset is not None and len(offset) == 2:
             try:
-                import numpy as np
-                if isinstance(offset, np.ndarray):
-                    offset = offset.tolist()
-                offset = list(offset)
-            except:
-                offset = list(offset)
+                offset_x, offset_y = int(offset[0]), int(offset[1])
+            except (TypeError, ValueError):
+                offset_x, offset_y = 0, 0
             
-            if len(offset) == 2 and int(offset[0]) > 1000:
+            if offset_x > 1000:
                 # 直接使用屏幕坐标点击
-                screen_x, screen_y = int(offset[0]), int(offset[1])
                 if self.input_controller:
-                    # 应用缩放因子
-                    scaled_x = int(screen_x * self.scale_factor)
-                    scaled_y = int(screen_y * self.scale_factor)
+                    scaled_x = int(offset_x * self.scale_factor)
+                    scaled_y = int(offset_y * self.scale_factor)
                     self.input_controller.click(scaled_x, scaled_y)
-                self.log(f"点击屏幕位置：{name} ({screen_x}, {screen_y}) -> 缩放后 ({scaled_x}, {scaled_y})")
+                self.log(f"点击屏幕位置：{name} ({offset_x}, {offset_y}) -> 缩放后 ({scaled_x}, {scaled_y})")
                 return
         
         # 使用图像识别定位
@@ -228,14 +215,29 @@ class ScriptExecutor:
             if result:
                 x = result.center[0]
                 y = result.center[1]
-                # 如果有相对偏移，加上偏移
                 if offset is not None and len(offset) == 2:
-                    x += int(offset[0])
-                    y += int(offset[1])
+                    try:
+                        x += int(offset[0])
+                        y += int(offset[1])
+                    except (TypeError, ValueError):
+                        pass
                 if self.input_controller:
                     self.input_controller.click(x, y)
                 self.log(f"点击图片：{name} ({x}, {y})")
             else:
+                # 图像识别失败，如果有屏幕坐标则使用屏幕坐标
+                if offset is not None and len(offset) == 2:
+                    try:
+                        offset_x, offset_y = int(offset[0]), int(offset[1])
+                        if offset_x > 1000:
+                            if self.input_controller:
+                                scaled_x = int(offset_x * self.scale_factor)
+                                scaled_y = int(offset_y * self.scale_factor)
+                                self.input_controller.click(scaled_x, scaled_y)
+                            self.log(f"图像识别失败，使用屏幕坐标：{name} ({scaled_x}, {scaled_y})")
+                            return
+                    except:
+                        pass
                 self.log(f"未找到图片：{name} (confidence < {confidence})", "ERROR")
     
     def _image_exists(self, name: str, confidence: float = 0.8) -> bool:
@@ -345,24 +347,23 @@ class ScriptExecutor:
         return True
     
     def _execute_actions(self, actions: list, on_error: str = "stop") -> bool:
-        """
-        执行动作列表
-        
-        Args:
-            actions: 动作列表
-            on_error: 错误处理策略
-        
-        Returns:
-            是否成功
-        """
+        """执行动作列表"""
         for i, action in enumerate(actions):
             action_type = action.get("type")
             
             try:
                 if action_type == "click_image":
                     img_name = action.get("image")
-                    offset = action.get("offset", [0, 0])
-                    self._click_image(img_name, 0.8, tuple(offset))
+                    offset = action.get("offset")
+                    # 安全转换 offset 为列表
+                    if offset is None:
+                        offset_list = None
+                    else:
+                        try:
+                            offset_list = [int(v) for v in offset]
+                        except (TypeError, ValueError):
+                            offset_list = None
+                    self._click_image(img_name, 0.8, offset_list)
                 
                 elif action_type == "click":
                     x = action.get("x", 0)
