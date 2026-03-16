@@ -251,14 +251,18 @@ class InputController:
 class InputRecorder:
     """输入录制器 - 监听输入事件"""
     
-    def __init__(self, screen_manager, on_click_callback=None):
+    def __init__(self, screen_manager, on_click_callback=None, on_stop_callback=None, stop_key: str = 'f12'):
         """
         Args:
             screen_manager: ScreenManager 实例
             on_click_callback: 点击回调函数 (x, y, button) -> None
+            on_stop_callback: 停止回调函数 () -> None
+            stop_key: 停止热键 (默认 'f12')
         """
         self.screen_manager = screen_manager
         self.on_click_callback = on_click_callback
+        self.on_stop_callback = on_stop_callback
+        self.stop_key = stop_key
         self.actions: List[RecordedAction] = []
         self.start_time: Optional[float] = None
         self.is_recording = False
@@ -311,6 +315,15 @@ class InputRecorder:
         except AttributeError:
             key_name = str(key).replace('Key.', '')  # 特殊键
         
+        # 检测停止热键 (F12)
+        if key_name.lower() == self.stop_key.lower():
+            print(f"\n[录制] 检测到 {self.stop_key.upper()}，停止录制...")
+            if self.on_stop_callback:
+                self.on_stop_callback()
+            else:
+                self.stop_recording()
+            return
+        
         action = RecordedAction(
             timestamp=self._get_relative_time(),
             action_type="key_press",
@@ -336,7 +349,7 @@ class InputRecorder:
         
         self._mouse_listener.start()
         self._keyboard_listener.start()
-        print("[录制] 已开始，按 Ctrl+C 停止")
+        print(f"[录制] 已开始，按 {self.stop_key.upper()} 停止录制")
     
     def stop_recording(self) -> List[RecordedAction]:
         """停止录制并返回动作列表"""

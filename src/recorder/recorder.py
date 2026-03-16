@@ -47,13 +47,18 @@ class ScriptRecorder:
         
         self.click_counter = 0
         self.image_map = {}  # 动作索引 -> 截图文件名
-        # 传入截图回调，实现点击时实时截图
+        # 传入截图回调和停止回调，实现点击时实时截图和 F12 停止
         self.input_recorder = InputRecorder(
             self.screen_manager,
-            on_click_callback=self._on_click_capture
+            on_click_callback=self._on_click_capture,
+            on_stop_callback=self._on_stop_recording
         )
         self.input_recorder.start_recording()
         return True
+    
+    def _on_stop_recording(self):
+        """停止录制回调（F12 触发）"""
+        self.stop_recording()
     
     def _on_click_capture(self, x: int, y: int, button: str) -> Optional[str]:
         """
@@ -277,20 +282,28 @@ class ScriptRecorder:
             保存的文件路径
         """
         print(f"开始录制，窗口：{window_title}")
-        print("按 Ctrl+C 停止录制...")
+        print(f"操作说明:")
+        print(f"  - 所有点击操作将被录制并自动截图")
+        print(f"  - 按 F12 停止录制")
+        print(f"  - 按 Ctrl+C 强制退出")
         
         if not self.start_recording(window_title):
             raise RuntimeError(f"无法找到窗口：{window_title}")
         
-        print("录制中... 每次点击会自动截图")
-        
+        # 等待录制停止（F12 或 Ctrl+C）
         try:
-            while True:
+            while self.input_recorder and self.input_recorder.is_recording:
                 time.sleep(0.1)
         except KeyboardInterrupt:
-            pass
+            print("\n[录制] 检测到 Ctrl+C，强制退出...")
+            if self.input_recorder:
+                self.input_recorder.stop_recording()
         
-        actions = self.stop_recording()
+        # 如果还没有停止，手动停止
+        if self.input_recorder and self.input_recorder.is_recording:
+            self.input_recorder.stop_recording()
+        
+        actions = self.input_recorder.actions if self.input_recorder else []
         print(f"\n录制完成，共 {len(actions)} 个动作")
         
         # 显示截图统计
