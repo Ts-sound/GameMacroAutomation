@@ -9,7 +9,7 @@ from src.core.config import ConfigManager, MacroScript, ScriptConfig
 from src.core.screen import ScreenManager, WindowInfo
 from src.core.image import ImageMatcher
 from src.core.input import InputController
-from src.core.lua_bridge import LuaBridge
+from src.executor.api import PythonRunner, ScriptAPI
 from src.script.validator import ScriptValidator
 
 
@@ -31,7 +31,8 @@ class ScriptExecutor:
         self.screen_manager = ScreenManager()
         self.image_matcher = ImageMatcher()
         self.input_controller: Optional[InputController] = None
-        self.lua_bridge: Optional[LuaBridge] = None
+        self.python_runner: Optional[PythonRunner] = None
+        self.script_api: Optional[ScriptAPI] = None
         
         self._logger: Optional[logging.Logger] = None
         self.current_window: Optional[WindowInfo] = None
@@ -103,117 +104,11 @@ class ScriptExecutor:
             scale_factor=self.scale_factor,
             logger=self._logger
         )
+        
+        self.script_api = ScriptAPI(self)
+        self.python_runner = PythonRunner(self)
     
-    def setup_lua_bridge(self, script: MacroScript):
-        """设置 Lua 桥接"""
-        self.lua_bridge = LuaBridge()
-        
-        # 注册 Lua API
-        self._register_lua_api(script)
-    
-    def _register_lua_api(self, script: MacroScript):
-        """注册 Lua API 函数"""
-        if not self.lua_bridge:
-            return
-        
-        # 注册 wait_image
-        def wait_image(name: str, timeout: int = 5000) -> bool:
-            return self._wait_image(name, timeout)
-        
-        # 注册 click_image
-        def click_image(name: str, confidence: float = 0.9, offset_x: int = 0, offset_y: int = 0):
-            self._click_image(name, confidence, (offset_x, offset_y))
-        
-        # 注册 image_exists
-        def image_exists(name: str, confidence: float = 0.8) -> bool:
-            return self._image_exists(name, confidence)
-        
-        # 注册 run_script
-        def run_script(script_name: str) -> bool:
-            return self._run_sub_script(script_name)
-        
-        # 注册 delay
-        def delay(ms: int):
-            self.input_controller.delay(ms)
-        
-        # 注册 log
-        def log_message(message: str, level: str = "INFO"):
-            self.log(message, level)
-        
-        # 注册 loop_while - 条件循环
-        def loop_while(condition_func, body_func, max_iterations: int = 100, check_interval: int = 1000):
-            """
-            条件循环
-            
-            Args:
-                condition_func: 条件函数，返回 true 继续循环
-                body_func: 循环体函数
-                max_iterations: 最大循环次数
-                check_interval: 条件检查间隔 (ms)
-            """
-            import time
-            for i in range(max_iterations):
-                if not condition_func():
-                    self.log(f"循环结束：条件不满足 (第{i+1}次)", "DEBUG")
-                    break
-                body_func()
-                time.sleep(check_interval / 1000.0)
-            else:
-                self.log(f"循环结束：达到最大次数 {max_iterations}", "WARNING")
-        
-        # 注册 loop_times - 固定次数循环
-        def loop_times(count: int, body_func, delay_ms: int = 0):
-            """
-            固定次数循环
-            
-            Args:
-                count: 循环次数
-                body_func: 循环体函数
-                delay_ms: 每次循环间隔 (ms)
-            """
-            import time
-            for i in range(count):
-                self.log(f"循环 {i+1}/{count}", "DEBUG")
-                body_func()
-                if delay_ms > 0:
-                    time.sleep(delay_ms / 1000.0)
-        
-        # 注册 loop_until - 直到条件满足
-        def loop_until(condition_func, body_func, timeout: int = 30000, check_interval: int = 1000):
-            """
-            直到条件满足才停止的循环
-            
-            Args:
-                condition_func: 条件函数，返回 true 停止循环
-                body_func: 循环体函数
-                timeout: 超时时间 (ms)
-                check_interval: 条件检查间隔 (ms)
-            """
-            import time
-            start_time = time.time()
-            iterations = 0
-            while True:
-                if condition_func():
-                    self.log(f"循环结束：条件满足 (第{iterations+1}次)", "DEBUG")
-                    break
-                if (time.time() - start_time) * 1000 > timeout:
-                    self.log(f"循环结束：超时 {timeout}ms", "WARNING")
-                    break
-                body_func()
-                iterations += 1
-                time.sleep(check_interval / 1000.0)
-        
-        self.lua_bridge.register_functions({
-            "wait_image": wait_image,
-            "click_image": click_image,
-            "image_exists": image_exists,
-            "run_script": run_script,
-            "delay": delay,
-            "log": log_message,
-            "loop_while": loop_while,
-            "loop_times": loop_times,
-            "loop_until": loop_until,
-        })
+
     
     def _wait_image(self, name: str, timeout: int = 5000) -> bool:
         """等待图片出现"""
@@ -239,7 +134,21 @@ class ScriptExecutor:
                 result = self.image_matcher.find_template(screen, template)
                 if result:
                     self.log(f"找到图片：{name} (confidence={result.confidence:.2f})")
-                    return True
+        return True
+    
+    def _execute_python_script(self, python_script: str) -> bool:
+        """执行 Python 脚本"""
+        script_path = self.scripts_dir / python_script
+        if not script_path.exists():
+            self.log(f"Python 脚本不存在：{python_script}", "ERROR")
+            return False
+        
+        self.log(f"执行 Python 脚本：{python_script}")
+        try:
+            return self.python_runner.execute_script(str(script_path))
+        except Exception as e:
+            self.log(f"Python 执行错误：{e}", "ERROR")
+            return False
             
             time.sleep(0.1)
         
@@ -428,21 +337,8 @@ class ScriptExecutor:
                 return False
             self.setup_scale_factor(script.config.reference_resolution)
         
-        # 如果有 Lua 脚本，执行 Lua
-        if script.lua_script:
-            lua_path = self.scripts_dir / script.lua_script
-            if lua_path.exists():
-                self.setup_lua_bridge(script)
-                self.log(f"执行 Lua 脚本：{script.lua_script}")
-                try:
-                    result = self.lua_bridge.execute_file(str(lua_path))
-                    return result is not False
-                except Exception as e:
-                    self.log(f"Lua 执行错误：{e}", "ERROR")
-                    return False
-            else:
-                self.log(f"Lua 脚本不存在：{script.lua_script}", "ERROR")
-                return False
+        if script.python_script:
+            return self._execute_python_script(script.python_script)
         
         # 没有 Lua 脚本时，直接执行 actions 数组
         if script.actions:

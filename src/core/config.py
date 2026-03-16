@@ -73,7 +73,7 @@ class MacroScript:
     meta: ScriptMeta
     config: ScriptConfig
     assets: ScriptAssets
-    lua_script: Optional[str] = None
+    python_script: Optional[str] = None  # Python 脚本路径
     scripts: dict[str, str] = field(default_factory=dict)  # 子脚本引用
     detection_zones: dict[str, dict] = field(default_factory=dict)
     actions: List[dict] = field(default_factory=list)
@@ -86,7 +86,7 @@ class MacroScript:
             meta=ScriptMeta(**data.get('meta', {})),
             config=ScriptConfig.from_dict(data.get('config', {})),
             assets=ScriptAssets.from_dict(data.get('assets', {})),
-            lua_script=data.get('lua_script'),
+            python_script=data.get('python_script'),
             scripts=data.get('scripts', {}),
             detection_zones=data.get('detection_zones', {}),
             actions=data.get('actions', []),

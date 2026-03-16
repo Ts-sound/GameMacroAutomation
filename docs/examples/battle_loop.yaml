@@ -2,7 +2,7 @@
 meta:
   name: "战斗循环"
   version: "1.0"
-  description: "使用 Lua 控制条件循环执行战斗流程"
+  description: "使用 Python 控制条件循环执行战斗流程"
   created_by: "manual"
 
 config:
@@ -23,5 +23,5 @@ assets:
 scripts:
   potion: "potion.yaml"
 
-# Lua 脚本文件
-lua_script: "scripts/battle_loop.lua"
+# Python 脚本文件
+python_script: "docs/examples/battle_loop.py"
