@@ -222,7 +222,8 @@ class ScriptExecutor:
                     "INFO"
                 )
                 if self.input_controller:
-                    self.input_controller.click_with_move(x, y)
+                    # 图像识别返回的是屏幕实际坐标，直接点击，不应用缩放
+                    self.input_controller.click_with_move(x, y, apply_scale=False)
                 self.log(f"[点击] ✓ 图像识别点击：{name} -> ({x}, {y})", "INFO")
                 return
             
@@ -242,7 +243,8 @@ class ScriptExecutor:
                     "WARNING"
                 )
                 if self.input_controller:
-                    self.input_controller.click_with_move(x, y)
+                    # 图像识别返回的是屏幕实际坐标，直接点击，不应用缩放
+                    self.input_controller.click_with_move(x, y, apply_scale=False)
                 self.log(f"[点击] ⚠ 低置信度点击：{name} -> ({x}, {y})", "WARNING")
                 return
             
