@@ -98,7 +98,10 @@ class ScriptExecutor:
             )
             self.log(f"自动计算缩放因子：{self.scale_factor:.2f}")
         
-        self.input_controller = InputController(scale_factor=self.scale_factor)
+        self.input_controller = InputController(
+            scale_factor=self.scale_factor,
+            logger=self._logger
+        )
     
     def setup_lua_bridge(self, script: MacroScript):
         """设置 Lua 桥接"""
@@ -184,60 +187,88 @@ class ScriptExecutor:
         1. 优先使用图像识别定位（置信度 0.7）
         2. 图像识别失败时，使用存储的屏幕坐标（offset）作为 fallback
         """
+        import time
         import traceback
         
+        start_time = time.time()
+        
         try:
-            self.log(f"_click_image 开始：name={name}, offset={offset}, confidence={confidence}")
+            self.log(f"[识别] 开始识别：{name}", "DEBUG")
             
             img_path = self._resolve_image_path(name, self.current_script_dir)
             if img_path is None:
-                self.log(f"图片不存在：{name}", "ERROR")
+                self.log(f"[识别] 图片不存在：{name}", "ERROR")
                 return
             
-            self.log(f"图片路径：{img_path}")
+            self.log(f"[识别] 图片路径：{img_path}", "DEBUG")
             
             template = self.image_matcher.load_template(str(img_path))
             if template is None:
-                self.log(f"无法加载图片：{name}", "ERROR")
+                self.log(f"[识别] 无法加载图片：{name}", "ERROR")
                 return
             
-            self.log(f"模板加载成功，shape={template.shape}")
+            self.log(f"[识别] 模板加载成功：{template.shape}", "DEBUG")
             
             # 优先使用图像识别
             if self.current_window:
-                self.log(f"开始图像识别，窗口尺寸：{self.current_window.width}x{self.current_window.height}")
+                self.log(f"[识别] 窗口：{self.current_window.width}x{self.current_window.height}", "DEBUG")
+                
                 screen = self.screen_manager.get_screen_region(
                     self.current_window, 0, 0,
                     self.current_window.width, self.current_window.height
                 )
-                self.log(f"截图尺寸：{screen.width}x{screen.height}")
-                self.log(f"模板尺寸：{template.shape[1]}x{template.shape[0]}")
+                
+                self.log(f"[识别] 截图：{screen.width}x{screen.height}", "DEBUG")
+                self.log(f"[识别] 模板：{template.shape[1]}x{template.shape[0]}", "DEBUG")
                 
                 # 尝试查找匹配
+                self.log(f"[识别] 查找匹配 (threshold={confidence})...", "DEBUG")
+                match_start = time.time()
                 result = self.image_matcher.find_template(screen, template, confidence)
+                match_time = (time.time() - match_start) * 1000
+                self.log(f"[识别] 匹配耗时：{match_time:.1f}ms", "DEBUG")
                 
                 if result is not None:
-                    self.log(f"✓ 图像识别成功：pos=({result.x},{result.y}), size={result.width}x{result.height}, confidence={result.confidence:.3f}")
-                    self.log(f"  识别区域中心：{result.center}")
+                    elapsed = (time.time() - start_time) * 1000
+                    self.log(
+                        f"[识别] ✓ 成功 | {name} | "
+                        f"pos=({result.x},{result.y}) | "
+                        f"size={result.width}x{result.height} | "
+                        f"conf={result.confidence:.3f} | "
+                        f"center={result.center} | "
+                        f"耗时={elapsed:.1f}ms",
+                        "INFO"
+                    )
                     x = int(result.center[0])
                     y = int(result.center[1])
                     if self.input_controller:
-                        self.input_controller.click(x, y)
-                    self.log(f"✓ 点击图片（图像识别）：{name} ({x}, {y})")
+                        self.input_controller.click_with_move(x, y)
+                    self.log(f"[点击] ✓ 图像识别点击：{name} -> ({x}, {y})", "INFO")
                     return
                 else:
                     # 尝试降低置信度再试一次
-                    self.log(f"图像识别失败 (confidence<{confidence})，尝试降低阈值...")
+                    self.log(f"[识别] 未找到匹配 (threshold={confidence})，尝试低阈值 (0.5)...", "DEBUG")
+                    match_start = time.time()
                     result = self.image_matcher.find_template(screen, template, 0.5)
+                    match_time = (time.time() - match_start) * 1000
+                    
                     if result:
-                        self.log(f"⚠ 低置信度匹配：pos=({result.x},{result.y}), confidence={result.confidence:.3f}")
+                        elapsed = (time.time() - start_time) * 1000
+                        self.log(
+                            f"[识别] ⚠ 低置信度 | {name} | "
+                            f"pos=({result.x},{result.y}) | "
+                            f"conf={result.confidence:.3f} | "
+                            f"耗时={elapsed:.1f}ms",
+                            "WARNING"
+                        )
                         x = int(result.center[0])
                         y = int(result.center[1])
                         if self.input_controller:
-                            self.input_controller.click(x, y)
-                        self.log(f"⚠ 点击图片（低置信度）：{name} ({x}, {y})")
+                            self.input_controller.click_with_move(x, y)
+                        self.log(f"[点击] ⚠ 低置信度点击：{name} -> ({x}, {y})", "WARNING")
                         return
-                    self.log(f"✗ 图像识别失败，未找到匹配")
+                    
+                    self.log(f"[识别] ✗ 失败：{name} (未找到匹配)", "WARNING")
             
             # 图像识别失败，使用存储的屏幕坐标作为 fallback
             if offset is not None and len(offset) == 2:
@@ -247,17 +278,26 @@ class ScriptExecutor:
                         # 应用缩放因子
                         scaled_x = int(screen_x * self.scale_factor)
                         scaled_y = int(screen_y * self.scale_factor)
-                        self.input_controller.click(scaled_x, scaled_y)
-                    self.log(f"→ 点击图片（屏幕坐标 fallback）：{name} ({screen_x}, {screen_y}) -> 缩放后 ({scaled_x}, {scaled_y})")
+                        self.input_controller.click_with_move(scaled_x, scaled_y)
+                    elapsed = (time.time() - start_time) * 1000
+                    self.log(
+                        f"[识别] → Fallback | {name} | "
+                        f"screen=({screen_x},{screen_y}) | "
+                        f"scaled=({scaled_x},{scaled_y}) | "
+                        f"耗时={elapsed:.1f}ms",
+                        "INFO"
+                    )
+                    self.log(f"[点击] → Fallback 点击：{name} -> ({scaled_x}, {scaled_y})", "INFO")
                     return
                 except Exception as e:
-                    self.log(f"fallback 失败：{e}", "ERROR")
+                    self.log(f"[识别] Fallback 失败：{e}", "ERROR")
             
-            self.log(f"✗ 未找到图片：{name}", "ERROR")
+            self.log(f"[识别] ✗ 未找到图片：{name}", "ERROR")
         
         except Exception as e:
-            self.log(f"_click_image 异常：{e}", "ERROR")
-            self.log(f"堆栈：{traceback.format_exc()}", "ERROR")
+            elapsed = (time.time() - start_time) * 1000
+            self.log(f"[识别] ✗ 异常：{e} (耗时={elapsed:.1f}ms)", "ERROR")
+            self.log(f"堆栈：{traceback.format_exc()}", "DEBUG")
             raise
     
     def _image_exists(self, name: str, confidence: float = 0.8) -> bool:
@@ -361,7 +401,20 @@ class ScriptExecutor:
         # 没有 Lua 脚本时，直接执行 actions 数组
         if script.actions:
             self.log(f"执行 {len(script.actions)} 个动作")
-            return self._execute_actions(script.actions, script.config.on_error)
+            result = self._execute_actions(script.actions, script.config.on_error)
+            
+            # 输出鼠标移动统计
+            if self.input_controller:
+                stats = self.input_controller.get_stats()
+                self.log(
+                    f"[统计] 鼠标移动：{stats.move_count}次 | "
+                    f"总距离={stats.total_distance:.0f}px | "
+                    f"总时长={stats.total_duration:.2f}s | "
+                    f"平均速度={stats.avg_speed_pixels_per_second:.0f}px/s",
+                    "INFO"
+                )
+            
+            return result
         
         self.log("脚本执行完成")
         return True

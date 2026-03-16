@@ -1,7 +1,10 @@
 """输入控制模块 - 封装 pyautogui 和 pynput"""
 import time
+import math
+import random
+import logging
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from enum import Enum
 
 import pyautogui
@@ -26,20 +29,74 @@ class RecordedAction:
     window_title: Optional[str] = None
 
 
+@dataclass
+class MouseStats:
+    """鼠标移动统计"""
+    total_distance: float = 0.0
+    total_duration: float = 0.0
+    move_count: int = 0
+    
+    @property
+    def avg_speed(self) -> float:
+        """平均速度 (pixels/ms)"""
+        if self.total_duration <= 0:
+            return 0.0
+        return self.total_distance / self.total_duration
+    
+    @property
+    def avg_speed_pixels_per_second(self) -> float:
+        """平均速度 (pixels/second)"""
+        return self.avg_speed * 1000
+
+
 class InputController:
     """输入控制器 - 执行动作"""
     
-    def __init__(self, scale_factor: float = 1.0):
+    def __init__(self, scale_factor: float = 1.0, logger: Optional[logging.Logger] = None):
         """
         Args:
             scale_factor: 坐标缩放因子
+            logger: 日志记录器
         """
         self.scale_factor = scale_factor
+        self._logger = logger
+        self.stats = MouseStats()
+        
+        # 鼠标移动配置
+        self.min_move_duration = 0.1  # 最小移动时间 (秒)
+        self.max_move_duration = 0.5  # 最大移动时间 (秒)
+        self.humanize_factor = 0.2    # 人类行为模拟因子 (20% 随机性)
+        
         # 配置 pyautogui
-        pyautogui.FAILSAFE = True  # 鼠标移到屏幕角落触发故障保护
-        pyautogui.PAUSE = 0.1  # 操作间默认延迟
+        pyautogui.FAILSAFE = True
+        pyautogui.PAUSE = 0.01  # 降低默认延迟
     
-    def scale_coordinates(self, x: int, y: int) -> tuple[int, int]:
+    def _calculate_move_duration(self, distance: float) -> float:
+        """
+        计算鼠标移动时长（模拟人类行为）
+        
+        Args:
+            distance: 移动距离 (pixels)
+        
+        Returns:
+            移动时长 (秒)
+        """
+        # 基于距离计算基础时长 (假设平均速度 1500 pixels/second)
+        base_duration = distance / 1500.0
+        
+        # 限制在最小/最大范围内
+        base_duration = max(self.min_move_duration, min(self.max_move_duration, base_duration))
+        
+        # 添加随机性模拟人类行为
+        random_factor = 1.0 + random.uniform(-self.humanize_factor, self.humanize_factor)
+        
+        return base_duration * random_factor
+    
+    def _calculate_distance(self, x1: int, y1: int, x2: int, y2: int) -> float:
+        """计算两点间距离"""
+        return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+    
+    def scale_coordinates(self, x: int, y: int) -> Tuple[int, int]:
         """应用缩放因子到坐标"""
         scaled_x = int(x * self.scale_factor)
         scaled_y = int(y * self.scale_factor)
@@ -55,6 +112,75 @@ class InputController:
         """
         scaled_x, scaled_y = self.scale_coordinates(x, y)
         pyautogui.click(x=scaled_x, y=scaled_y, button=button)
+        
+        if self._logger:
+            self._logger.debug(f"[输入] 点击：({x},{y}) -> 缩放后 ({scaled_x},{scaled_y})")
+    
+    def click_with_move(self, x: int, y: int, button: str = 'left'):
+        """
+        移动到目标位置后点击（模拟真实鼠标行为）
+        
+        Args:
+            x, y: 目标坐标
+            button: 鼠标按钮
+        """
+        # 获取当前鼠标位置
+        current_x, current_y = pyautogui.position()
+        
+        # 应用缩放
+        target_x, target_y = self.scale_coordinates(x, y)
+        
+        # 计算距离和时长
+        distance = self._calculate_distance(current_x, current_y, target_x, target_y)
+        duration = self._calculate_move_duration(distance)
+        
+        # 更新统计
+        self.stats.total_distance += distance
+        self.stats.total_duration += duration
+        self.stats.move_count += 1
+        
+        if self._logger:
+            speed = self.stats.avg_speed_pixels_per_second
+            self._logger.debug(
+                f"[输入] 移动：({current_x},{current_y}) -> ({target_x},{target_y}) | "
+                f"距离={distance:.1f}px | 时长={duration:.3f}s | "
+                f"平均速度={speed:.1f}px/s"
+            )
+        
+        # 移动鼠标（贝塞尔曲线模拟人类轨迹）
+        self._move_mouse_bezier(target_x, target_y, duration)
+        
+        # 点击
+        pyautogui.click(button=button)
+        
+        if self._logger:
+            self._logger.info(f"[输入] ✓ 点击：({x},{y}) -> ({target_x},{target_y})")
+    
+    def _move_mouse_bezier(self, target_x: int, target_y: int, duration: float):
+        """
+        使用贝塞尔曲线移动鼠标（模拟人类移动轨迹）
+        
+        Args:
+            target_x, target_y: 目标坐标
+            duration: 移动时长 (秒)
+        """
+        current_x, current_y = pyautogui.position()
+        
+        # 生成控制点（添加随机偏移模拟人类行为）
+        offset_x = (target_x - current_x) * 0.3
+        offset_y = (target_y - current_y) * 0.3
+        control_x = (current_x + target_x) / 2 + random.uniform(-offset_x, offset_x)
+        control_y = (current_y + target_y) / 2 + random.uniform(-offset_y, offset_y)
+        
+        # 贝塞尔曲线移动
+        steps = int(duration * 100)  # 100 steps per second
+        for i in range(steps + 1):
+            t = i / steps
+            # 二次贝塞尔曲线公式
+            x = (1-t)**2 * current_x + 2*(1-t)*t * control_x + t**2 * target_x
+            y = (1-t)**2 * current_y + 2*(1-t)*t * control_y + t**2 * target_y
+            pyautogui.moveTo(x, y)
+            time.sleep(duration / steps)
     
     def press(self, key: str, duration: int = 0):
         """
@@ -70,6 +196,9 @@ class InputController:
             pyautogui.keyUp(key)
         else:
             pyautogui.press(key)
+        
+        if self._logger:
+            self._logger.debug(f"[输入] 按键：{key}" + (f" (按住{duration}ms)" if duration > 0 else ""))
     
     def move_mouse(self, x: int, y: int, duration: float = 0.5):
         """
@@ -104,6 +233,14 @@ class InputController:
             ms: 延迟毫秒数
         """
         time.sleep(ms / 1000.0)
+    
+    def get_stats(self) -> MouseStats:
+        """获取鼠标移动统计"""
+        return self.stats
+    
+    def reset_stats(self):
+        """重置鼠标移动统计"""
+        self.stats = MouseStats()
 
 
 class InputRecorder:
