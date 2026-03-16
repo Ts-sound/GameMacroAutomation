@@ -355,14 +355,23 @@ class ScriptExecutor:
                 if action_type == "click_image":
                     img_name = action.get("image")
                     offset = action.get("offset")
+                    
+                    # 调试信息
+                    import numpy as np
+                    self.log(f"动作 {i+1}: click_image {img_name}, offset type={type(offset).__name__}, offset={offset}")
+                    
                     # 安全转换 offset 为列表
                     if offset is None:
                         offset_list = None
+                    elif isinstance(offset, np.ndarray):
+                        offset_list = offset.tolist()
                     else:
                         try:
                             offset_list = [int(v) for v in offset]
-                        except (TypeError, ValueError):
+                        except (TypeError, ValueError) as e:
+                            self.log(f"offset 转换失败：{e}", "WARNING")
                             offset_list = None
+                    
                     self._click_image(img_name, 0.8, offset_list)
                 
                 elif action_type == "click":
