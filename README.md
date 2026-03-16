@@ -71,15 +71,17 @@ def main(executor):
 
 查看 `docs/examples/` 目录获取完整示例：
 
-- **basic_combat** - 基础战斗循环示例
-  - 使用 `loop_while` 进行条件循环
-  - 调用子脚本执行具体操作
-  - 包含图片资源管理
-
+### 示例 1: 循环控制
 ```bash
-# 运行示例
-python -m src.main run docs/examples/basic_combat/main.yaml
+python -m src.main run docs/examples/01_loop_demo/main.yaml
 ```
+
+### 示例 2: 战斗流程
+```bash
+python -m src.main run docs/examples/02_battle_example/battle_loop.yaml
+```
+
+详细说明请查看 [docs/examples/README.md](docs/examples/README.md)
 
 ## 开发
 
