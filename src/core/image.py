@@ -83,6 +83,14 @@ class ImageMatcher:
         if confidence is None:
             confidence = self.default_confidence
         
+        # 检查模板尺寸是否小于截图
+        if template.shape[0] > screen.height or template.shape[1] > screen.width:
+            # 模板比截图大，缩小模板
+            scale = min(screen.width / template.shape[1], screen.height / template.shape[0])
+            new_width = int(template.shape[1] * scale * 0.9)  # 90% 保证小于截图
+            new_height = int(template.shape[0] * scale * 0.9)
+            template = cv2.resize(template, (new_width, new_height))
+        
         # 转屏幕为 OpenCV
         screen_cv = cv2.cvtColor(np.array(screen), cv2.COLOR_RGB2BGR)
         

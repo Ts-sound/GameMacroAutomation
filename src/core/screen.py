@@ -37,11 +37,25 @@ class ScreenManager:
         """
         import pygetwindow as gw
         windows = gw.getWindowsWithTitle(title)
+        
         if not windows:
             return None
         
-        # 返回第一个匹配的窗口
-        window = windows[0]
+        # 过滤过小的窗口（可能是任务栏图标或其他非主窗口）
+        min_width = 200
+        min_height = 100
+        
+        valid_windows = [
+            w for w in windows 
+            if w.width >= min_width and w.height >= min_height
+        ]
+        
+        if not valid_windows:
+            # 如果没有符合条件的，返回最大的窗口
+            valid_windows = sorted(windows, key=lambda w: w.width * w.height, reverse=True)
+        
+        # 返回第一个有效的窗口
+        window = valid_windows[0]
         return WindowInfo(
             title=window.title,
             left=window.left,
