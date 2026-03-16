@@ -4,6 +4,7 @@ import yaml
 from pathlib import Path
 from typing import Optional, List
 from datetime import datetime
+from PIL import Image
 
 from src.core.screen import ScreenManager, WindowInfo
 from src.core.input import InputRecorder, RecordedAction
@@ -21,92 +22,157 @@ class ScriptRecorder:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
+        # 图片保存目录（与脚本同目录下的 images 文件夹）
+        self.images_dir = self.output_dir / "images"
+        self.images_dir.mkdir(parents=True, exist_ok=True)
+        
         self.screen_manager = ScreenManager()
         self.input_recorder: Optional[InputRecorder] = None
         self.current_window: Optional[WindowInfo] = None
+        
+        # 截图配置
+        self.screenshot_size = 100  # 截取点击位置周围 100x100 区域
+        self.click_counter = 0  # 点击计数器，用于生成唯一文件名
     
     def find_game_window(self, title: str) -> Optional[WindowInfo]:
-        """
-        查找游戏窗口
-        
-        Args:
-            title: 窗口标题
-        
-        Returns:
-            WindowInfo 或 None
-        """
+        """查找游戏窗口"""
         return self.screen_manager.find_window(title)
     
     def start_recording(self, window_title: str) -> bool:
-        """
-        开始录制
-        
-        Args:
-            window_title: 游戏窗口标题
-        
-        Returns:
-            是否成功开始
-        """
+        """开始录制"""
         self.current_window = self.find_game_window(window_title)
         if not self.current_window:
             print(f"未找到窗口：{window_title}")
             return False
         
+        self.click_counter = 0
         self.input_recorder = InputRecorder(self.screen_manager)
         self.input_recorder.start_recording()
         return True
     
     def stop_recording(self) -> List[RecordedAction]:
-        """
-        停止录制
-        
-        Returns:
-            录制的动作列表
-        """
+        """停止录制"""
         if not self.input_recorder:
             return []
         return self.input_recorder.stop_recording()
     
-    def generate_script_name(self, base_name: str) -> str:
-        """生成脚本名称"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return f"{base_name}_{timestamp}"
+    def capture_click_region(self, x: int, y: int) -> Optional[str]:
+        """
+        截取点击位置周围的区域
+        
+        Args:
+            x, y: 屏幕绝对坐标
+        
+        Returns:
+            保存的图片文件名，失败返回 None
+        """
+        if not self.current_window:
+            return None
+        
+        # 计算相对窗口坐标
+        rel_x = x - self.current_window.left
+        rel_y = y - self.current_window.top
+        
+        # 检查坐标是否在窗口内
+        if (rel_x < 0 or rel_x >= self.current_window.width or
+            rel_y < 0 or rel_y >= self.current_window.height):
+            print(f"警告：点击位置 ({x}, {y}) 超出窗口范围")
+            return None
+        
+        # 计算截图区域（以点击点为中心）
+        half_size = self.screenshot_size // 2
+        x1 = max(0, rel_x - half_size)
+        y1 = max(0, rel_y - half_size)
+        x2 = min(self.current_window.width, x1 + self.screenshot_size)
+        y2 = min(self.current_window.height, y1 + self.screenshot_size)
+        
+        # 调整 x1, y1 确保截图尺寸为 screenshot_size x screenshot_size
+        if x2 - x1 < self.screenshot_size:
+            x1 = max(0, x2 - self.screenshot_size)
+        if y2 - y1 < self.screenshot_size:
+            y1 = max(0, y2 - self.screenshot_size)
+        
+        # 截图
+        screenshot = self.screen_manager.get_screen_region(
+            self.current_window, x1, y1, x2 - x1, y2 - y1
+        )
+        
+        # 保存截图
+        self.click_counter += 1
+        filename = f"click_{self.click_counter:03d}.png"
+        filepath = self.images_dir / filename
+        screenshot.save(str(filepath))
+        
+        return filename
     
-    def actions_to_yaml(self, actions: List[RecordedAction], window_title: str) -> dict:
+    def actions_to_yaml(
+        self,
+        actions: List[RecordedAction],
+        window_title: str,
+        image_map: Optional[dict] = None
+    ) -> dict:
         """
         将动作列表转换为 YAML 结构
         
         Args:
             actions: 录制的动作列表
             window_title: 窗口标题
+            image_map: 动作索引到图片文件名的映射
         
         Returns:
             YAML 字典结构
         """
+        image_map = image_map or {}
+        
         # 构建动作序列
         yaml_actions = []
+        assets_images = {}
         
-        for action in actions:
+        for i, action in enumerate(actions):
             if action.action_type == "mouse_click":
-                yaml_actions.append({
-                    "type": "click",
-                    "x": action.x,
-                    "y": action.y,
-                    "button": action.button
-                })
+                # 检查是否有对应的截图
+                if i in image_map:
+                    img_name = f"click_{i+1}"
+                    img_file = image_map[i]
+                    assets_images[img_name] = f"images/{img_file}"
+                    
+                    # 计算相对窗口的偏移
+                    if self.current_window:
+                        offset_x = action.x - self.current_window.left
+                        offset_y = action.y - self.current_window.top
+                    else:
+                        offset_x = action.x
+                        offset_y = action.y
+                    
+                    yaml_actions.append({
+                        "type": "click_image",
+                        "image": img_name,
+                        "offset": [offset_x % self.screenshot_size, offset_y % self.screenshot_size]
+                    })
+                else:
+                    # 没有截图，使用普通点击
+                    yaml_actions.append({
+                        "type": "click",
+                        "x": action.x,
+                        "y": action.y,
+                        "button": action.button
+                    })
+                    
             elif action.action_type == "key_press":
-                yaml_actions.append({
-                    "type": "keypress",
-                    "key": action.key
-                })
+                if action.key:  # 忽略空按键
+                    yaml_actions.append({
+                        "type": "keypress",
+                        "key": action.key
+                    })
         
-        # 如果有时间间隔，添加 delay
+        # 添加时间间隔
         if len(actions) > 1:
             enhanced_actions = []
             for i, action in enumerate(yaml_actions):
                 if i > 0:
-                    # 计算与前一个动作的时间间隔
-                    delay_ms = actions[i].timestamp - actions[i-1].timestamp
+                    # 找到对应的原始动作索引
+                    orig_idx = i
+                    delay_ms = actions[orig_idx].timestamp - actions[orig_idx - 1].timestamp
                     if delay_ms > 50:  # 大于 50ms 才添加 delay
                         enhanced_actions.append({"type": "delay", "ms": delay_ms})
                 enhanced_actions.append(action)
@@ -124,22 +190,13 @@ class ScriptRecorder:
                 "retry_times": 3
             },
             "assets": {
-                "images": {}
+                "images": assets_images
             },
             "actions": yaml_actions
         }
     
     def save_script(self, yaml_data: dict, script_name: str) -> str:
-        """
-        保存脚本到文件
-        
-        Args:
-            yaml_data: YAML 字典结构
-            script_name: 脚本名称
-        
-        Returns:
-            保存的文件路径
-        """
+        """保存脚本到文件"""
         script_path = self.output_dir / f"{script_name}.yaml"
         
         with open(script_path, 'w', encoding='utf-8') as f:
@@ -164,6 +221,8 @@ class ScriptRecorder:
         if not self.start_recording(window_title):
             raise RuntimeError(f"无法找到窗口：{window_title}")
         
+        print("录制中... 每次点击会自动截图")
+        
         try:
             while True:
                 time.sleep(0.1)
@@ -171,12 +230,22 @@ class ScriptRecorder:
             pass
         
         actions = self.stop_recording()
-        print(f"录制完成，共 {len(actions)} 个动作")
+        print(f"\n录制完成，共 {len(actions)} 个动作")
         
-        yaml_data = self.actions_to_yaml(actions, window_title)
+        # 处理点击截图
+        image_map = {}
+        for i, action in enumerate(actions):
+            if action.action_type == "mouse_click":
+                img_file = self.capture_click_region(action.x, action.y)
+                if img_file:
+                    image_map[i] = img_file
+                    print(f"  点击 {i+1}: 已截图 {img_file}")
+        
+        yaml_data = self.actions_to_yaml(actions, window_title, image_map)
         script_path = self.save_script(yaml_data, output_name)
         
-        print(f"脚本已保存：{script_path}")
+        print(f"\n脚本已保存：{script_path}")
+        print(f"图片已保存：{self.images_dir}")
         return script_path
 
 
@@ -207,7 +276,6 @@ def list_windows():
     else:
         print(f"找到 {len(valid_windows)} 个窗口:\n")
         
-        # 分组显示（每 5 个一组）
         for i, w in enumerate(valid_windows, 1):
             print(f"  [{i:3d}] {w.title}")
             print(f"        位置：({w.left}, {w.top})  尺寸：{w.width}x{w.height}")
@@ -246,5 +314,7 @@ def record_script(output: str, window: Optional[str] = None):
     output_name = Path(output).stem
     output_dir = str(Path(output).parent)
     recorder.output_dir = Path(output_dir)
+    recorder.images_dir = Path(output_dir) / "images"
+    recorder.images_dir.mkdir(parents=True, exist_ok=True)
     
     recorder.record(window, output_name)
