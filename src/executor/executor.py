@@ -184,14 +184,14 @@ class ScriptExecutor:
             self.log(f"_click_image 开始：name={name}, offset={offset}")
             
             img_path = self._resolve_image_path(name, self.current_script_dir)
-            if not img_path:
+            if img_path is None:
                 self.log(f"图片不存在：{name}", "ERROR")
                 return
             
             self.log(f"图片路径：{img_path}")
             
             template = self.image_matcher.load_template(str(img_path))
-            if not template:
+            if template is None:
                 self.log(f"无法加载图片：{name}", "ERROR")
                 return
             
@@ -224,7 +224,7 @@ class ScriptExecutor:
                 )
                 result = self.image_matcher.find_template(screen, template, confidence)
                 
-                if result:
+                if result is not None:
                     self.log(f"图像识别成功：x={result.x}, y={result.y}, confidence={result.confidence}")
                     x = int(result.center[0])
                     y = int(result.center[1])
