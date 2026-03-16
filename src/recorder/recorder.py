@@ -46,9 +46,32 @@ class ScriptRecorder:
             return False
         
         self.click_counter = 0
-        self.input_recorder = InputRecorder(self.screen_manager)
+        self.image_map = {}  # 动作索引 -> 截图文件名
+        # 传入截图回调，实现点击时实时截图
+        self.input_recorder = InputRecorder(
+            self.screen_manager,
+            on_click_callback=self._on_click_capture
+        )
         self.input_recorder.start_recording()
         return True
+    
+    def _on_click_capture(self, x: int, y: int, button: str) -> Optional[str]:
+        """
+        点击回调函数 - 实时截图
+        
+        Args:
+            x, y: 屏幕绝对坐标
+            button: 鼠标按钮
+        
+        Returns:
+            截图文件名
+        """
+        img_file = self.capture_click_region(x, y)
+        if img_file:
+            # 记录动作索引和文件名的映射
+            action_idx = len(self.input_recorder.actions)
+            self.image_map[action_idx] = img_file
+        return img_file
     
     def stop_recording(self) -> List[RecordedAction]:
         """停止录制"""
@@ -270,16 +293,14 @@ class ScriptRecorder:
         actions = self.stop_recording()
         print(f"\n录制完成，共 {len(actions)} 个动作")
         
-        # 处理点击截图
-        image_map = {}
-        for i, action in enumerate(actions):
-            if action.action_type == "mouse_click":
-                img_file = self.capture_click_region(action.x, action.y)
-                if img_file:
-                    image_map[i] = img_file
-                    print(f"  点击 {i+1}: 已截图 {img_file}")
+        # 显示截图统计
+        screenshot_count = len(self.image_map)
+        if screenshot_count > 0:
+            print(f"已保存 {screenshot_count} 张截图到：{self.images_dir}")
+            for i, img_file in self.image_map.items():
+                print(f"  点击 {i+1}: {img_file}")
         
-        yaml_data = self.actions_to_yaml(actions, window_title, image_map)
+        yaml_data = self.actions_to_yaml(actions, window_title, self.image_map)
         script_path = self.save_script(yaml_data, output_name)
         
         print(f"\n脚本已保存：{script_path}")

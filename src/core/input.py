@@ -109,12 +109,14 @@ class InputController:
 class InputRecorder:
     """输入录制器 - 监听输入事件"""
     
-    def __init__(self, screen_manager):
+    def __init__(self, screen_manager, on_click_callback=None):
         """
         Args:
             screen_manager: ScreenManager 实例
+            on_click_callback: 点击回调函数 (x, y, button) -> None
         """
         self.screen_manager = screen_manager
+        self.on_click_callback = on_click_callback
         self.actions: List[RecordedAction] = []
         self.start_time: Optional[float] = None
         self.is_recording = False
@@ -131,6 +133,13 @@ class InputRecorder:
         """鼠标点击回调"""
         if not self.is_recording or not pressed:
             return
+        
+        # 调用截图回调（如果有）
+        if self.on_click_callback:
+            try:
+                self.on_click_callback(x, y, button.name)
+            except Exception as e:
+                print(f"截图回调失败：{e}")
         
         # 获取当前活动窗口 (简化处理)
         window_title = "Unknown"
