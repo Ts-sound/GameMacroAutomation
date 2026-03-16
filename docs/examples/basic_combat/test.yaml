@@ -1,0 +1,53 @@
+actions:
+- image: screen_001
+  offset:
+  - 1339
+  - 1548
+  type: click_image
+- ms: 2184
+  type: delay
+- image: click_002
+  offset:
+  - 752
+  - 140
+  type: click_image
+- ms: 1188
+  type: delay
+- image: click_003
+  offset:
+  - 451
+  - 246
+  type: click_image
+- ms: 1444
+  type: delay
+- key: a
+  type: keypress
+- ms: 363
+  type: delay
+- key: a
+  type: keypress
+- ms: 968
+  type: delay
+- key: enter
+  type: keypress
+- ms: 2002
+  type: delay
+- key: enter
+  type: keypress
+- ms: 4157
+  type: delay
+assets:
+  images:
+    click_002: images/click_002.png
+    click_003: images/click_003.png
+    click_005: images/click_005.png
+    screen_001: images/screen_001.png
+    screen_004: images/screen_004.png
+config:
+  log_level: INFO
+  retry_times: 3
+  window_title: Notepad++
+meta:
+  created_by: recorder
+  name: 录制脚本
+  version: '1.0'

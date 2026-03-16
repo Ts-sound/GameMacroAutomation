@@ -1,0 +1,30 @@
+# 基础战斗循环示例
+# 演示如何使用 Python 脚本控制条件循环执行
+
+meta:
+  name: "基础战斗循环"
+  version: "1.0"
+  description: "使用 Python 控制条件循环执行战斗流程"
+  created_by: "manual"
+
+config:
+  window_title: "游戏窗口"
+  log_level: "INFO"
+  retry_times: 3
+  default_timeout: 5000
+
+assets:
+  images:
+    # 录制生成的图片（在 images/ 目录下）
+    click_002: "images/click_002.png"
+    click_003: "images/click_003.png"
+    click_005: "images/click_005.png"
+    screen_001: "images/screen_001.png"
+    screen_004: "images/screen_004.png"
+
+scripts:
+  # 子脚本引用
+  potion: "test.yaml"
+
+# Python 脚本文件
+python_script: "main.py"
