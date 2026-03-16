@@ -110,11 +110,11 @@ class ScriptExecutor:
     
 
     
-    def _wait_image(self, name: str, timeout: int = 5000) -> bool:
+    def _wait_image(self, name: str, timeout: int = 5000, confidence: float = 0.8) -> bool:
         """等待图片出现"""
         import time
         
-        img_path = self._resolve_image_path(name)
+        img_path = self._resolve_image_path(name, self.current_script_dir)
         if not img_path:
             self.log(f"图片不存在：{name}", "ERROR")
             return False
@@ -131,10 +131,14 @@ class ScriptExecutor:
                     self.current_window, 0, 0, 
                     self.current_window.width, self.current_window.height
                 )
-                result = self.image_matcher.find_template(screen, template)
+                result = self.image_matcher.find_template(screen, template, confidence)
                 if result:
-                    self.log(f"找到图片：{name} (confidence={result.confidence:.2f})")
-        return True
+                    self.log(f"找到图片：{name} (confidence={result.confidence:.2f})", "DEBUG")
+                    return True
+            time.sleep(0.1)
+        
+        self.log(f"等待超时：{name}", "WARNING")
+        return False
     
     def _execute_python_script(self, python_script: str) -> bool:
         """执行 Python 脚本"""
@@ -155,17 +159,11 @@ class ScriptExecutor:
             return False
     
     def _click_image(self, name: str, confidence: float = 0.7, offset=None):
-        """
-        点击图片 - 使用 pyautogui.locateCenterOnScreen
-        
-        逻辑：
-        1. 优先使用图像识别定位（置信度 0.7）
-        2. 图像识别失败时，使用存储的屏幕坐标（offset）作为 fallback
-        """
+        """点击图片"""
         import time
-        import traceback
         
         start_time = time.time()
+        scaled_x, scaled_y = 0, 0  # Initialize fallback variables
         
         try:
             self.log(f"[识别] 开始识别：{name}", "DEBUG")
@@ -258,29 +256,6 @@ class ScriptExecutor:
         """检查图片是否存在"""
         img_path = self._resolve_image_path(name, self.current_script_dir)
         if not img_path:
-            return False
-        
-        template = self.image_matcher.load_template(str(img_path))
-        if not template:
-            return False
-        
-        if self.current_window:
-            screen = self.screen_manager.get_screen_region(
-                self.current_window, 0, 0,
-                self.current_window.width, self.current_window.height
-            )
-            result = self.image_matcher.find_template(screen, template, confidence)
-            return result is not None
-        
-        return False
-    
-    def _wait_image(self, name: str, timeout: int = 5000) -> bool:
-        """等待图片出现"""
-        import time
-        
-        img_path = self._resolve_image_path(name, self.current_script_dir)
-        if not img_path:
-            self.log(f"图片不存在：{name}", "ERROR")
             return False
         
         template = self.image_matcher.load_template(str(img_path))
