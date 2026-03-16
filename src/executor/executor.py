@@ -143,17 +143,16 @@ class ScriptExecutor:
             self.log(f"Python 脚本不存在：{python_script}", "ERROR")
             return False
         
-        self.log(f"执行 Python 脚本：{python_script}")
+        self.log(f"执行 Python 脚本：{script_path}")
         try:
-            return self.python_runner.execute_script(str(script_path))
+            # 加载并执行
+            module = self.python_runner.load_script(str(script_path))
+            if module is None:
+                return False
+            return self.python_runner.execute(module)
         except Exception as e:
             self.log(f"Python 执行错误：{e}", "ERROR")
             return False
-            
-            time.sleep(0.1)
-        
-        self.log(f"等待超时：{name}", "WARNING")
-        return False
     
     def _click_image(self, name: str, confidence: float = 0.7, offset=None):
         """
