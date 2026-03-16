@@ -75,7 +75,8 @@ class TestConfigManager:
     def test_load_script_config(self, tmp_path):
         """测试加载脚本配置"""
         config_file = tmp_path / "config.yaml"
-        config_file.write_text("window_title: Test\nlog_level: DEBUG\n")
+        # YAML 格式应该是完整的脚本格式，配置在 config 键下
+        config_file.write_text("config:\n  window_title: Test\n  log_level: DEBUG\n")
         
         manager = ConfigManager()
         config = manager.load_script_config(str(config_file))
