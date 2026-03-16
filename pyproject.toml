@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "game-macro-automation"
 version = "0.1.0"
-description = "游戏宏自动化系统 - 基于 Python + Lua"
+description = "游戏宏自动化系统 - 基于 Python"
 requires-python = ">=3.10"
 dependencies = [
     "pyautogui>=0.9.54",
@@ -15,7 +15,6 @@ dependencies = [
     "Pillow>=10.0.0",
     "pyyaml>=6.0",
     "pygetwindow>=0.0.9",
-    "lupa>=2.0",
     "pydantic>=2.0",
 ]
 
