@@ -181,11 +181,66 @@ class ScriptRecorder:
 
 
 # CLI 辅助函数
+def list_windows():
+    """CLI: 列出所有可用窗口"""
+    import pygetwindow as gw
+    
+    windows = gw.getAllWindows()
+    
+    # 过滤空标题和过小的窗口
+    valid_windows = [
+        w for w in windows 
+        if w.title and w.width > 100 and w.height > 100
+    ]
+    
+    # 按标题排序
+    valid_windows.sort(key=lambda w: w.title.lower())
+    
+    print("\n" + "=" * 60)
+    print("可用窗口列表")
+    print("=" * 60)
+    print()
+    
+    if not valid_windows:
+        print("未找到符合条件的窗口")
+        print("提示：最小窗口尺寸为 100x100")
+    else:
+        print(f"找到 {len(valid_windows)} 个窗口:\n")
+        
+        # 分组显示（每 5 个一组）
+        for i, w in enumerate(valid_windows, 1):
+            print(f"  [{i:3d}] {w.title}")
+            print(f"        位置：({w.left}, {w.top})  尺寸：{w.width}x{w.height}")
+    
+    print()
+    print("=" * 60)
+    print()
+    print("使用示例:")
+    print('  python -m src.main record -o scripts/test.yaml -w "窗口标题"')
+    print()
+    print("或者使用窗口编号 (1-{0}):".format(len(valid_windows)))
+    print("  python -m src.main record -o scripts/test.yaml -w 1")
+    print()
+
+
 def record_script(output: str, window: Optional[str] = None):
     """CLI: 录制脚本"""
     if not window:
-        print("请使用 --window 指定游戏窗口标题")
+        list_windows()
         return
+    
+    # 支持数字索引选择窗口
+    if window.isdigit():
+        import pygetwindow as gw
+        windows = [w for w in gw.getAllWindows() if w.title and w.width > 100 and w.height > 100]
+        windows.sort(key=lambda w: w.title.lower())
+        
+        idx = int(window) - 1
+        if 0 <= idx < len(windows):
+            window = windows[idx].title
+        else:
+            print(f"错误：窗口编号 {window} 超出范围 (1-{len(windows)})")
+            return
     
     recorder = ScriptRecorder()
     output_name = Path(output).stem

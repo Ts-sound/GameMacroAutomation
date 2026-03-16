@@ -82,7 +82,10 @@ def cli():
     
     # 根据命令调用对应模块
     if args.command == "record":
-        from src.recorder.recorder import record_script
+        from src.recorder.recorder import record_script, list_windows
+        if not args.window:
+            list_windows()
+            return
         record_script(args.output, args.window)
     elif args.command == "run":
         from src.executor.executor import run_script
