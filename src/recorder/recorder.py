@@ -130,8 +130,19 @@ class ScriptRecorder:
         from PIL import ImageGrab
         screenshot = ImageGrab.grab(bbox=(x1, y1, x1 + self.screenshot_size, y1 + self.screenshot_size))
         
+        # 检查截图是否有效（不是全黑）
+        import numpy as np
+        img_array = np.array(screenshot)
+        if img_array.mean() < 10:  # 平均亮度太低，可能是全黑
+            print(f"警告：截图过暗，可能是无效区域 ({x}, {y})")
+            # 创建一个白色提示图片
+            from PIL import Image, ImageDraw
+            screenshot = Image.new('RGB', (self.screenshot_size, self.screenshot_size), color='white')
+            draw = ImageDraw.Draw(screenshot)
+            draw.text((10, 40), f"Click at ({x},{y})", fill='black')
+        
         self.click_counter += 1
-        filename = f"click_{self.click_counter:03d}.png"
+        filename = f"screen_{self.click_counter:03d}.png"
         filepath = self.images_dir / filename
         screenshot.save(str(filepath))
         
@@ -149,7 +160,7 @@ class ScriptRecorder:
         Args:
             actions: 录制的动作列表
             window_title: 窗口标题
-            image_map: 动作索引到图片文件名的映射
+            image_map: 动作索引到图片文件名的映射 {action_index: filename}
         
         Returns:
             YAML 字典结构
@@ -164,22 +175,16 @@ class ScriptRecorder:
             if action.action_type == "mouse_click":
                 # 检查是否有对应的截图
                 if i in image_map:
-                    img_name = f"click_{i+1}"
                     img_file = image_map[i]
+                    # 使用文件名作为图片名（不含.png）
+                    img_name = Path(img_file).stem
                     assets_images[img_name] = f"images/{img_file}"
                     
-                    # 计算相对窗口的偏移
-                    if self.current_window:
-                        offset_x = action.x - self.current_window.left
-                        offset_y = action.y - self.current_window.top
-                    else:
-                        offset_x = action.x
-                        offset_y = action.y
-                    
+                    # 存储屏幕绝对坐标作为 offset（执行时用于验证）
                     yaml_actions.append({
                         "type": "click_image",
                         "image": img_name,
-                        "offset": [offset_x % self.screenshot_size, offset_y % self.screenshot_size]
+                        "offset": [action.x, action.y]  # 存储屏幕坐标
                     })
                 else:
                     # 没有截图，使用普通点击
@@ -204,9 +209,10 @@ class ScriptRecorder:
                 if i > 0:
                     # 找到对应的原始动作索引
                     orig_idx = i
-                    delay_ms = actions[orig_idx].timestamp - actions[orig_idx - 1].timestamp
-                    if delay_ms > 50:  # 大于 50ms 才添加 delay
-                        enhanced_actions.append({"type": "delay", "ms": delay_ms})
+                    if orig_idx < len(actions):
+                        delay_ms = actions[orig_idx].timestamp - actions[orig_idx - 1].timestamp
+                        if delay_ms > 50:  # 大于 50ms 才添加 delay
+                            enhanced_actions.append({"type": "delay", "ms": delay_ms})
                 enhanced_actions.append(action)
             yaml_actions = enhanced_actions
         

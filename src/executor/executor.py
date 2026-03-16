@@ -176,8 +176,15 @@ class ScriptExecutor:
         self.log(f"等待超时：{name}", "WARNING")
         return False
     
-    def _click_image(self, name: str, confidence: float = 0.9, offset: tuple[int, int] = (0, 0)):
-        """点击图片"""
+    def _click_image(self, name: str, confidence: float = 0.9, offset: tuple[int, int] = None):
+        """
+        点击图片
+        
+        Args:
+            name: 图片名称
+            confidence: 置信度
+            offset: 如果是屏幕坐标（大数值）则直接使用，否则作为相对偏移
+        """
         img_path = self._resolve_image_path(name, self.current_script_dir)
         if not img_path:
             self.log(f"图片不存在：{name}", "ERROR")
@@ -188,6 +195,19 @@ class ScriptExecutor:
             self.log(f"无法加载图片：{name}", "ERROR")
             return
         
+        # 检查 offset 是否是屏幕坐标（大于 1000 认为是屏幕坐标）
+        if offset and len(offset) == 2 and offset[0] > 1000:
+            # 直接使用屏幕坐标点击
+            screen_x, screen_y = offset[0], offset[1]
+            if self.input_controller:
+                # 应用缩放因子
+                scaled_x = int(screen_x * self.scale_factor)
+                scaled_y = int(screen_y * self.scale_factor)
+                self.input_controller.click(scaled_x, scaled_y)
+            self.log(f"点击屏幕位置：{name} ({screen_x}, {screen_y}) -> 缩放后 ({scaled_x}, {scaled_y})")
+            return
+        
+        # 使用图像识别定位
         if self.current_window:
             screen = self.screen_manager.get_screen_region(
                 self.current_window, 0, 0,
@@ -196,12 +216,17 @@ class ScriptExecutor:
             result = self.image_matcher.find_template(screen, template, confidence)
             
             if result:
-                x = result.center[0] + offset[0]
-                y = result.center[1] + offset[1]
-                self.input_controller.click(x, y)
+                x = result.center[0]
+                y = result.center[1]
+                # 如果有相对偏移，加上偏移
+                if offset:
+                    x += offset[0]
+                    y += offset[1]
+                if self.input_controller:
+                    self.input_controller.click(x, y)
                 self.log(f"点击图片：{name} ({x}, {y})")
             else:
-                self.log(f"未找到图片：{name}", "ERROR")
+                self.log(f"未找到图片：{name} (confidence < {confidence})", "ERROR")
     
     def _image_exists(self, name: str, confidence: float = 0.8) -> bool:
         """检查图片是否存在"""
