@@ -22,6 +22,12 @@ def cli():
         "--window", "-w",
         help="游戏窗口标题 (可选，自动检测)"
     )
+    record_parser.add_argument(
+        "--screenshot-size", "-s",
+        type=int,
+        default=400,
+        help="截图区域大小 (默认 400x400)"
+    )
     
     # run 命令
     run_parser = subparsers.add_parser("run", help="运行宏脚本")
@@ -86,7 +92,7 @@ def cli():
         if not args.window:
             list_windows()
             return
-        record_script(args.output, args.window)
+        record_script(args.output, args.window, args.screenshot_size)
     elif args.command == "run":
         from src.executor.executor import run_script
         run_script(args.script, args.window, args.log_level)

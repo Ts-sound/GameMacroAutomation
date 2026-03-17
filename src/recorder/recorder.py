@@ -14,10 +14,11 @@ from src.core.config import MacroScript, ScriptMeta, ScriptConfig, ScriptAssets
 class ScriptRecorder:
     """脚本录制器"""
     
-    def __init__(self, output_dir: str = "scripts"):
+    def __init__(self, output_dir: str = "scripts", screenshot_size: int = 400):
         """
         Args:
             output_dir: 脚本输出目录
+            screenshot_size: 截图区域大小 (默认 400x400)
         """
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -31,7 +32,7 @@ class ScriptRecorder:
         self.current_window: Optional[WindowInfo] = None
         
         # 截图配置
-        self.screenshot_size = 100  # 截取点击位置周围 100x100 区域
+        self.screenshot_size = screenshot_size  # 截取点击位置周围区域大小
         self.click_counter = 0  # 点击计数器，用于生成唯一文件名
     
     def find_game_window(self, title: str) -> Optional[WindowInfo]:
@@ -372,8 +373,14 @@ def list_windows():
     print()
 
 
-def record_script(output: str, window: Optional[str] = None):
-    """CLI: 录制脚本"""
+def record_script(output: str, window: Optional[str] = None, screenshot_size: int = 400):
+    """CLI: 录制脚本
+    
+    Args:
+        output: 输出 YAML 文件路径
+        window: 游戏窗口标题
+        screenshot_size: 截图区域大小 (默认 400x400)
+    """
     if not window:
         list_windows()
         return
@@ -391,11 +398,9 @@ def record_script(output: str, window: Optional[str] = None):
             print(f"错误：窗口编号 {window} 超出范围 (1-{len(windows)})")
             return
     
-    recorder = ScriptRecorder()
+    recorder = ScriptRecorder(
+        output_dir=str(Path(output).parent),
+        screenshot_size=screenshot_size
+    )
     output_name = Path(output).stem
-    output_dir = str(Path(output).parent)
-    recorder.output_dir = Path(output_dir)
-    recorder.images_dir = Path(output_dir) / "images"
-    recorder.images_dir.mkdir(parents=True, exist_ok=True)
-    
     recorder.record(window, output_name)
