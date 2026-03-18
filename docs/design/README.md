@@ -106,32 +106,42 @@ graph TB
 
 ---
 
-## 4. 技术选型
+## 4. 模块列表
+
+| 模块 | 说明 | 设计文档 |
+|------|------|---------|
+| **core** | 核心功能层（屏幕、输入、图像、配置、日志） | [core/README.md](core/README.md) |
+| **recorder** | 录制器模块 | [recorder/README.md](recorder/README.md) |
+| **executor** | 执行器模块 | [executor/README.md](executor/README.md) |
+| **script** | 脚本验证和管理 | [script/README.md](script/README.md) |
+| **tools** | 辅助工具（截图工具） | [tools/README.md](tools/README.md) |
+
+---
+
+## 5. 技术选型
 
 | 组件 | 选型 | 理由 | 备选 |
 |------|------|------|------|
 | **主语言** | Python 3.10+ | 生态丰富，开发效率高 | - |
 | **目标平台** | Windows only | 简化实现，专注 Windows 游戏 | 后续扩展跨平台 |
 | **脚本格式** | YAML | 人类可读，易编辑 | JSON, TOML |
-| **编排引擎** | Lua (嵌入) | 轻量、易嵌入、热重载 | 纯 Python 解释器 |
+| **编排引擎** | Python | 统一技术栈，无需额外依赖 | Lua 嵌入 |
 | **输入控制** | pyautogui + pynput | 成熟稳定，API 简单 | 直接 Win32 API |
-| **图像识别** | OpenCV 模板匹配 | 简单快速，适合固定 UI | 特征匹配、深度学习 |
+| **图像识别** | pyautogui | 简单易用，内置模板匹配 | OpenCV |
 | **窗口管理** | PyGetWindow | 跨窗口获取和定位 | Win32 GUI |
-| **配置管理** | PyYAML + pydantic | 类型验证 + 易用性 | 纯 PyYAML |
+| **配置管理** | PyYAML | 简单易用 | TOML |
 
 ### 依赖清单
 
 ```txt
 # 核心依赖
-pyautogui>=0.9.54      # 鼠标键盘模拟
+pyautogui>=0.9.54      # 鼠标键盘模拟、图像识别
 pynput>=1.7.6          # 输入事件监听
-opencv-python>=4.8.0   # 图像识别
 numpy>=1.24.0          # 数组处理
 Pillow>=10.0.0         # 图像处理
 pyyaml>=6.0            # YAML 解析
 pygetwindow>=0.0.9     # 窗口管理
-lupa>=2.0              # Lua 嵌入
-pydantic>=2.0          # 配置验证
+pydantic>=2.0          # 配置验证（可选）
 
 # 开发依赖
 pytest>=7.0            # 测试框架
