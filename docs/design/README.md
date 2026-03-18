@@ -2,7 +2,7 @@
 
 ## 1. 项目概述
 
-**目标:** 构建一个基于 Python + Lua 的 Windows 游戏宏自动化系统，支持录制、编辑、执行宏脚本。
+**目标:** 构建一个基于 Python 的 Windows 游戏宏自动化系统，支持录制、编辑、执行宏脚本。
 
 **项目类型:**
 - **类型:** 桌面自动化工具
@@ -21,9 +21,9 @@
 - 录制生成基础脚本，手动编辑添加复杂逻辑
 - 顶层脚本作为入口，调用子脚本完成复杂流程
 
-### 2.2 YAML+Lua 混合方案
+### 2.2 YAML+Python 混合方案
 - **YAML 层 (数据):** 存储元数据、配置、资源引用、检测区域定义
-- **Lua 层 (逻辑):** 编写流程控制、条件判断、循环等逻辑
+- **Python 层 (逻辑):** 编写流程控制、条件判断、循环等逻辑
 
 ### 2.3 条件检测分离
 - 录制阶段：只录动作，不录条件
@@ -54,7 +54,7 @@ graph TB
         ScreenManager[ScreenManager<br/>屏幕/窗口管理]
         InputController[InputController<br/>输入控制]
         ImageMatcher[ImageMatcher<br/>图像识别]
-        LuaBridge[LuaBridge<br/>Python-Lua 桥接]
+        ScriptAPI[ScriptAPI<br/>Python 脚本 API]
         ConfigManager[ConfigManager<br/>配置管理]
         Logger[Logger<br/>日志系统]
     end
@@ -68,7 +68,7 @@ graph TB
     
     subgraph Scripts["脚本层"]
         YAML[YAML 配置]
-        Lua[Lua 逻辑]
+        Python[Python 脚本]
     end
     
     main --> Recorder
@@ -79,19 +79,19 @@ graph TB
     Recorder --> ScreenManager
     Recorder --> InputController
     
-    Executor --> LuaBridge
+    Executor --> ScriptAPI
     Executor --> ImageMatcher
     Executor --> ConfigManager
     Executor --> Logger
     
-    LuaBridge --> ScreenManager
-    LuaBridge --> InputController
-    LuaBridge --> ImageMatcher
+    ScriptAPI --> ScreenManager
+    ScriptAPI --> InputController
+    ScriptAPI --> ImageMatcher
     
     Validator --> ConfigManager
     
     YAML --> ConfigManager
-    Lua --> LuaBridge
+    Python --> ScriptAPI
 
     classDef entry fill:#90EE90;
     classDef core fill:#87CEEB;
@@ -99,9 +99,9 @@ graph TB
     classDef script fill:#DDA0DD;
     
     class main entry;
-    class ScreenManager,InputController,ImageMatcher,LuaBridge,ConfigManager,Logger core;
+    class ScreenManager,InputController,ImageMatcher,ScriptAPI,ConfigManager,Logger core;
     class Recorder,Executor,ZoneCaptor,Validator module;
-    class YAML,Lua script;
+    class YAML,Python script;
 ```
 
 ---
@@ -175,7 +175,50 @@ detection_zones:
     confidence: 0.85
     region: [100, 50, 200, 30]
 
-lua_script: "scripts/dungeon_flow.lua"
+python_script: "scripts/dungeon_flow.py"
+```
+
+### 5.2 Python 逻辑层
+
+```python
+# 内置 API 由 executor 提供
+# executor.wait_image(name, timeout) -> bool
+# executor.click_image(name, confidence, offset)
+# executor.image_exists(name, confidence) -> bool
+# executor.run_script(name)
+# executor.delay(ms)
+# executor.log(message, level)
+
+def main(executor):
+    # 进入战斗
+    if not executor.wait_image("attack_btn", 5000):
+        executor.log("未找到攻击按钮", "ERROR")
+        return False
+    executor.click_image("attack_btn")
+    executor.delay(500)
+    
+    # 战斗循环
+    max_iterations = 100
+    
+    def attack_condition():
+        return executor.image_exists("boss_hp_bar")
+    
+    def attack_body():
+        if executor.image_exists("low_hp_warning"):
+            executor.run_script("potion.yaml")
+        else:
+            executor.click_image("skill_1")
+        executor.delay(1000)
+    
+    executor.loop_while(attack_condition, attack_body, max_iterations, 1000)
+    
+    # 领取奖励
+    if executor.wait_image("reward_popup", 3000):
+        executor.click_image("reward_popup")
+    else:
+        executor.log("未检测到奖励弹出", "WARNING")
+    
+    return True
 ```
 
 ### 5.2 Lua 逻辑层
@@ -389,18 +432,17 @@ game-macro-automation/
 │   │   ├── screen.py           # 屏幕/窗口管理
 │   │   ├── input.py            # 输入控制
 │   │   ├── image.py            # 图像识别
-│   │   ├── lua_bridge.py       # Python-Lua 桥接
 │   │   ├── config.py           # 配置管理
 │   │   └── logger.py           # 日志系统
-│   │
-│   ├── recorder/
-│   │   ├── __init__.py
-│   │   └── recorder.py         # 录制器
 │   │
 │   ├── executor/
 │   │   ├── __init__.py
 │   │   ├── executor.py         # 执行器
-│   │   └── runner.py           # 动作执行
+│   │   └── api.py              # Python 脚本 API
+│   │
+│   ├── recorder/
+│   │   ├── __init__.py
+│   │   └── recorder.py         # 录制器
 │   │
 │   ├── tools/
 │   │   ├── __init__.py
@@ -414,7 +456,7 @@ game-macro-automation/
 │
 ├── scripts/                    # 脚本目录
 │   ├── *.yaml                  # YAML 配置
-│   └── *.lua                   # Lua 逻辑
+│   └── *.py                    # Python 逻辑
 │
 ├── assets/
 │   ├── templates/              # 动作模板
@@ -426,8 +468,8 @@ game-macro-automation/
     ├── test_screen.py
     ├── test_input.py
     ├── test_image.py
-    ├── test_lua_bridge.py
-    └── test_executor.py
+    ├── test_executor.py
+    └── test_api.py
 ```
 
 ---
@@ -446,7 +488,7 @@ execution_report:
   errors: []
   warnings:
     - "图像匹配度偏低：skill_1 (0.72)"
-  lua_logs: [...]
+  python_logs: [...]
 ```
 
 ---
@@ -457,16 +499,16 @@ MVP 阶段包含以下功能：
 
 1. **基础功能**
    - 录制输入并生成 YAML 脚本
-   - 执行 Lua 编排脚本
-   - OpenCV 图像识别
+   - 执行 Python 编排脚本
+   - pyautogui 图像识别
 
 2. **截图工具**
    - 检测区域截图
    - 保存为 detection/*.png
 
 3. **高级编排**
-   - Lua 条件分支
-   - Lua 循环
+   - Python 条件分支
+   - Python 循环
    - 子脚本调用
 
 4. **日志系统**
@@ -480,7 +522,7 @@ MVP 阶段包含以下功能：
 
 1. ✅ 成功录制简单操作并生成 YAML
 2. ✅ 成功执行录制生成的脚本
-3. ✅ Lua 编排脚本可调用子脚本
+3. ✅ Python 编排脚本可调用子脚本
 4. ✅ 图像识别准确率 > 90%
 5. ✅ 支持 1920x1080 和 1280x720 分辨率
 6. ✅ 所有单元测试通过
@@ -490,10 +532,10 @@ MVP 阶段包含以下功能：
 
 ## 13. 下一步
 
-1. ⏳ 搭建项目骨架
-2. ⏳ 实现核心模块（screen/input/image/lua_bridge/config/logger）
-3. ⏳ 实现录制器 MVP
-4. ⏳ 实现执行器 MVP
-5. ⏳ 实现检测区域截图工具
+1. ✅ 搭建项目骨架
+2. ✅ 实现核心模块（screen/input/image/config/logger）
+3. ✅ 实现录制器 MVP
+4. ✅ 实现执行器 MVP
+5. ✅ 实现检测区域截图工具
 6. ⏳ 编写单元测试
 7. ⏳ 集成测试 + 迭代
