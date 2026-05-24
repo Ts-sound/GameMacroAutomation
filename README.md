@@ -264,5 +264,4 @@ A: 按 `F12` 键正常停止，或 `Ctrl+C` 强制退出。
 
 ## 许可证
 
-MIT License
-
+Apache-2.0 license

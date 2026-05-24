@@ -1,243 +1,143 @@
 # Script 模块设计
 
-## 概述
+## Overview
 
-Script 模块负责 YAML 脚本的 Schema 定义、验证和管理。
+**职责：** YAML 脚本的验证和管理
+- Schema 定义
+- 脚本验证（文件存在、YAML 解析、资源引用）
+- 依赖树分析
+- 脚本列表管理
 
-## 模块结构
+**非职责：** 脚本执行、录制功能
 
-```
-src/script/
-├── __init__.py
-├── schema.py          # YAML Schema 定义
-├── validator.py       # 脚本验证器
-└── manager.py         # 脚本管理（待实现）
-```
+## Architecture
 
-## 组件设计
+```mermaid
+graph TD
+    subgraph Validator["ScriptValidator"]
+        V1[validate_script_file]
+        V2[validate_yaml]
+        V3[validate_resources]
+        V4[show_dependency_tree]
+    end
 
-### 1. Schema 定义 (schema.py)
+    subgraph ConfigManager
+        CM1[load_script]
+        CM2[load_script_config]
+    end
 
-**职责：** 定义 YAML 脚本的结构和数据类型
+    subgraph Manager["ScriptManager (CLI)"]
+        M1[list_scripts]
+        M2[get_script_info]
+    end
 
-**常量定义：**
-```python
-# 动作类型定义
-ACTION_TYPES = Literal[
-    "click", "click_image", "keypress", "type_text",
-    "delay", "wait_image", "wait_image_disappear",
-    "move_mouse", "scroll", "log", "run_script",
-    "conditional", "loop", "parallel", "sequence"
-]
+    V1 --> V2
+    V2 --> V3
+    V3 --> CM1
+    V1 --> V4
+    CM1 --> M1
+    CM1 --> M2
 
-# 条件类型定义
-CONDITION_TYPES = Literal[
-    "image_exists", "image_not_exists", "timeout", "custom"
-]
-
-# Schema 验证规则
-SCRIPT_SCHEMA = {
-    "meta": {
-        "required": True,
-        "fields": {
-            "name": {"type": str, "required": True},
-            "version": {"type": str, "required": False},
-            ...
-        }
-    },
-    "config": {...},
-    "assets": {...},
-    ...
-}
+    classDef validator fill:#87CEEB
+    classDef config fill:#90EE90
+    classDef manager fill:#DDA0DD
+    class V1,V2,V3,V4 validator
+    class CM1,CM2 config
+    class M1,M2 manager
 ```
 
----
+## Interfaces
 
-### 2. ScriptValidator (validator.py)
+| Class | Public Methods | Description |
+|-------|---------------|-------------|
+| `ValidationError` | - | 验证错误异常 |
+| `ScriptValidator` | validate_script_file, show_dependency_tree | 脚本验证器 |
+| `ConfigManager` | load_script, load_script_config | 配置加载器 |
 
-**职责：** 验证 YAML 脚本的完整性和正确性
+## Validation Rules
 
-**类设计：**
-```python
-class ValidationError(Exception):
-    """验证错误异常"""
-
-class ScriptValidator:
-    __init__(scripts_dir="scripts")
-    
-    validate_script_file(yaml_path) -> Tuple[bool, List[str]]
-    show_dependency_tree(yaml_path, indent, visited) -> str
-
-# CLI 辅助函数
-validate_script_file(yaml_path)
-show_script_tree(yaml_path)
-```
-
-**验证规则：**
-
-| 检查项 | 说明 |
-|--------|------|
-| 文件存在 | YAML 文件必须存在 |
-| YAML 解析 | 必须是有效的 YAML 格式 |
+| Check | Description |
+|-------|-------------|
+| File exists | YAML 文件必须存在 |
+| YAML parse | 必须是有效的 YAML 格式 |
 | meta.name | 必需的元数据字段 |
-| python_script | 如果引用，文件必须存在 |
+| python_script | 文件存在（如果引用） |
 | scripts.* | 子脚本引用必须存在 |
 | assets.images.* | 图片资源必须存在 |
-| detection_zones.*.image | 检测图片必须存在 |
 
-**依赖树显示：**
-```
-entry_dungeon.yaml
-├─ enter_dungeon.yaml
-│  ├─ click_start.yaml
-│  └─ confirm.yaml
-├─ battle_loop.yaml
-│  ├─ attack.yaml
-│  └─ skill_combo.yaml
-└─ collect_reward.yaml
-```
+## Dependencies Tree
 
----
+```mermaid
+graph TD
+    A[entry_dungeon.yaml] --> B[enter_dungeon.yaml]
+    A --> C[battle_loop.yaml]
+    A --> D[collect_reward.yaml]
+    B --> E[click_start.yaml]
+    B --> F[confirm.yaml]
+    C --> G[attack.yaml]
+    C --> H[skill_combo.yaml]
+    H --> I[skill1.yaml]
+    H --> J[skill2.yaml]
 
-### 3. ScriptManager (manager.py) - 待实现
-
-**职责：** 脚本列表、依赖分析、批量操作
-
-**计划功能：**
-```python
-class ScriptManager:
-    __init__(scripts_dir, assets_dir)
-    
-    list_scripts() -> List[Dict]
-    get_script_info(script_name) -> Dict
-    get_dependencies(script_name) -> List[str]
-    get_dependents(script_name) -> List[str]
-    validate_all() -> Dict[str, Tuple[bool, List[str]]]
+    classDef entry fill:#90EE90
+    classDef script fill:#87CEEB
+    classDef leaf fill:#DDA0DD
+    class A entry
+    class B,C,D script
+    class E,F,G,H,I,J leaf
 ```
 
-## YAML 脚本格式
-
-### 完整示例
+## YAML Schema
 
 ```yaml
 meta:
-  name: "副本流程"
-  version: "1.0"
-  description: "完整副本自动化流程"
-  created_by: "manual"
+  name: string          # Required
+  version: string       # Optional
+  description: string   # Optional
+  created_by: string    # Optional: recorder/manual
 
 config:
-  window_title: "游戏窗口"
-  screen_region: [0, 0, 1920, 1080]
-  scale_factor: null
-  log_level: "INFO"
-  default_timeout: 5000
-  on_error: "stop"
+  window_title: string      # Optional
+  log_level: string         # Optional: DEBUG/INFO/WARNING/ERROR
+  on_error: string          # Optional: stop/retry/ignore
+  retry_times: int          # Optional
+  default_timeout: int      # Optional
 
 assets:
   images:
-    attack_btn: "assets/attack_btn.png"
-    boss_hp: "assets/boss_hp.png"
+    key: "path/to/image.png"
 
 scripts:
-  attack: "attack.yaml"
-  potion: "potion.yaml"
+  key: "path/to/script.yaml"
 
 detection_zones:
-  boss_hp_bar:
-    image: "detection/boss_hp.png"
-    confidence: 0.85
-    region: [100, 50, 200, 30]
+  key:
+    image: string
+    confidence: float
+    region: [x, y, w, h]
 
-python_script: "scripts/dungeon_flow.py"
+python_script: "path/to/script.py"  # Optional
+actions: []                           # Optional
 ```
 
-### 字段说明
+## Error Handling
 
-| 字段 | 必需 | 类型 | 说明 |
-|------|------|------|------|
-| `meta.name` | ✅ | string | 脚本名称 |
-| `meta.version` | ❌ | string | 版本号 |
-| `meta.description` | ❌ | string | 描述 |
-| `meta.created_by` | ❌ | string | recorder/manual |
-| `config.window_title` | ❌ | string | 窗口标题 |
-| `config.log_level` | ❌ | string | 日志等级 |
-| `config.on_error` | ❌ | string | 错误处理策略 |
-| `assets.images` | ❌ | dict | 图片资源映射 |
-| `scripts` | ❌ | dict | 子脚本引用 |
-| `detection_zones` | ❌ | dict | 检测区域定义 |
-| `python_script` | ❌ | string | Python 脚本路径 |
-| `actions` | ❌ | list | 动作序列（纯 YAML 执行） |
+| Error Type | Message |
+|------------|---------|
+| File not found | `文件不存在：{path}` |
+| YAML parse error | `YAML 解析失败：{detail}` |
+| Missing meta.name | `缺少必需的 meta.name 字段` |
+| Resource not found | `资源不存在：{type} [{key}]` |
 
-## 依赖关系
+## Testing Strategy
 
-```
-ScriptValidator
-├── ConfigManager (core/config.py)
-└── Path (stdlib)
+| Test Type | Coverage |
+|-----------|----------|
+| Unit | validate_script_file, show_dependency_tree |
+| Integration | validate with real YAML files |
 
-ScriptManager (待实现)
-├── ScriptValidator
-├── ConfigManager
-└── yaml (stdlib)
-```
+## Future Improvements
 
-## 使用示例
-
-### 验证脚本
-
-```python
-from src.script.validator import ScriptValidator
-
-validator = ScriptValidator(scripts_dir="scripts")
-is_valid, errors = validator.validate_script_file("scripts/entry_dungeon.yaml")
-
-if not is_valid:
-    for error in errors:
-        print(f"错误：{error}")
-```
-
-### 显示依赖树
-
-```python
-from src.script.validator import show_script_tree
-
-tree = show_script_tree("scripts/entry_dungeon.yaml")
-print(tree)
-```
-
-### CLI 使用
-
-```bash
-# 验证单个脚本
-python -m src.main validate scripts/entry_dungeon.yaml
-
-# 显示依赖树
-python -m src.main tree scripts/entry_dungeon.yaml
-
-# 列出所有脚本
-python -m src.main list
-```
-
-## 错误处理
-
-### 验证错误类型
-
-| 错误类型 | 说明 | 示例 |
-|---------|------|------|
-| 文件不存在 | YAML 或引用的文件不存在 | `文件不存在：scripts/attack.yaml` |
-| YAML 解析失败 | YAML 格式错误 | `YAML 解析失败：invalid syntax` |
-| 缺少必需字段 | 缺少 meta.name 等 | `缺少必需的 meta.name 字段` |
-| 资源不存在 | 图片或子脚本不存在 | `图片资源不存在 [attack]: assets/attack.png` |
-
-## 测试
-
-```python
-# tests/test_validator.py
-class TestScriptValidator:
-    def test_validate_valid_script(self, tmp_path)
-    def test_validate_missing_meta(self, tmp_path)
-    def test_validate_file_not_exists(self, tmp_path)
-    def test_validate_missing_subscript(self, tmp_path)
-    def test_show_dependency_tree(self, tmp_path)
-```
+- [ ] Add schema validation with pydantic
+- [ ] Support script versioning
+- [ ] Add script template generation
