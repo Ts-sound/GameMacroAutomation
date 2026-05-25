@@ -1,6 +1,6 @@
 """图标状态变化监测示例
 
-功能：监测指定区域内图标的状态变化，变化后发出提示音
+功能：监测指定区域内图标的状态变化，变化后返回全屏坐标
 """
 
 
@@ -21,7 +21,7 @@ def main(executor):
     # - interval_ms: 检测间隔 (2秒)
     # - on_changed: 状态变化回调
     # - sound: 发出提示音 (system 表示系统提示音)
-    result = executor.monitor_icon_state(
+    changed, coords = executor.monitor_icon_state(
         region=region,
         normal_template="icon_before",
         changed_template="icon_after",
@@ -31,8 +31,9 @@ def main(executor):
         timeout=60000  # 最多监测 60 秒
     )
 
-    if result:
-        executor.log("检测到图标状态变化", "INFO")
+    if changed and coords:
+        x, y = coords
+        executor.log(f"检测到图标状态变化，位置: ({x}, {y})", "INFO")
     else:
         executor.log("监测超时，未检测到变化", "WARNING")
 

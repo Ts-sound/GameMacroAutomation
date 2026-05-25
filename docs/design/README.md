@@ -178,19 +178,28 @@ Continuously monitor an icon's state change. Play sound and trigger callback whe
 
 ```python
 # Monitor state change with callback
-def on_state_change(new_state: str):  # "normal" or "changed"
+def on_state_change(new_state: str):  # "normal", "changed", or "none"
     executor.log(f"State changed to: {new_state}")
 
-executor.monitor_icon_state(
+changed, coords = executor.monitor_icon_state(
     region={"x": (0.4, 0.6), "y": (0.1, 0.2)},
     normal_template="boss_hp_normal",
     changed_template="boss_hp_low",
-    interval_ms=1000,
+    interval_ms=2000,
     on_changed=on_state_change,
     sound={"type": "system"},  # or {"type": "file", "file": "alert.wav"}
     timeout=60000              # Optional, default no timeout
 )
+
+# Returns: (bool, tuple) -> (changed, (screen_x, screen_y))
+# (True, (960, 540)) - icon changed, return full-screen coordinates
+# (False, None) - timeout or no change detected
 ```
+
+**Detection cycle returns:**
+- `"none"`: No icon detected
+- `"normal"`: Original icon detected
+- `"changed"`: Icon has changed
 
 #### MatchResult
 

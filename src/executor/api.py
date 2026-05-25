@@ -2,7 +2,7 @@
 import time
 import types
 from pathlib import Path
-from typing import Optional, Callable, Any, List
+from typing import Optional, Callable, Any, List, Tuple
 
 from src.core.image import MatchResult
 
@@ -75,25 +75,34 @@ class ScriptAPI:
         region: dict,
         normal_template: str,
         changed_template: str,
-        interval_ms: int = 1000,
+        interval_ms: int = 2000,
         on_changed: Optional[Callable[[str], None]] = None,
         sound: Optional[dict] = None,
         timeout: Optional[int] = None,
-    ) -> bool:
+    ) -> Tuple[bool, Optional[Tuple[int, int]]]:
         """
         监测图标状态变化
 
+        持续循环检测，返回状态：
+        - (True, (x, y)): icon 已变化，返回变化图标的全屏坐标
+        - (False, None): 超时或未检测到变化
+
+        每次循环检测返回：
+        - "none": 未检测到任何图标
+        - "normal": 检测到原始 icon
+        - "changed": icon 已变化
+
         Args:
-            region: 百分比区域
+            region: 百分比区域 {"x": (x1, x2), "y": (y1, y2)}
             normal_template: 正常态模板名
             changed_template: 变化态模板名
-            interval_ms: 检测间隔 (ms)
+            interval_ms: 检测间隔 (ms)，默认 2000ms
             on_changed: 回调函数，参数为 "normal" 或 "changed"
             sound: 声音配置 {"type": "system"} 或 {"type": "file", "file": "x.wav"}
             timeout: 超时时间 (ms)，None 表示无限
 
         Returns:
-            状态变化返回 True，超时返回 False
+            (bool, tuple): (是否检测到变化, 变化图标的全屏坐标)
         """
         return self._executor._monitor_icon_state(
             region, normal_template, changed_template,

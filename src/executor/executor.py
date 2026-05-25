@@ -5,7 +5,7 @@ import time
 import pyautogui
 from PIL import ImageGrab
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 from src.core.config import ConfigManager, MacroScript
 from src.core.screen import ScreenManager, WindowInfo
@@ -289,30 +289,39 @@ class ScriptExecutor:
         region: dict,
         normal_template: str,
         changed_template: str,
-        interval_ms: int = 1000,
+        interval_ms: int = 2000,
         on_changed: Optional[Callable] = None,
         sound: Optional[dict] = None,
         timeout: Optional[int] = None,
-    ) -> bool:
-        """监测图标状态 - 内部方法"""
+    ) -> Tuple[bool, Optional[Tuple[int, int]]]:
+        """监测图标状态 - 内部方法
+
+        持续循环检测，返回状态：
+        - "none": 未检测到任何图标
+        - "normal": 检测到原始 icon
+        - "changed": icon 已变化
+
+        当状态变为 "changed" 时，触发回调和声音，返回 (True, (x, y))
+        超时或出错返回 (False, None)
+        """
         normal_path = self._resolve_image_path(normal_template, self.current_script_dir)
         changed_path = self._resolve_image_path(changed_template, self.current_script_dir)
 
         if not normal_path:
             self.log(f"正常态模板不存在：{normal_template}", "ERROR")
-            return False
+            return False, None
         if not changed_path:
             self.log(f"变化态模板不存在：{changed_template}", "ERROR")
-            return False
+            return False, None
 
         normal_img = self.image_matcher.load_template(str(normal_path))
         changed_img = self.image_matcher.load_template(str(changed_path))
 
         if normal_img is None or changed_img is None:
             self.log("模板加载失败", "ERROR")
-            return False
+            return False, None
 
-        self.log(f"开始监测图标状态：normal={normal_template}, changed={changed_template}", "INFO")
+        self.log(f"开始监测图标状态：normal={normal_template}, changed={changed_template}, interval={interval_ms}ms", "INFO")
 
         last_state: Optional[str] = None
         start_time = time.time()
@@ -322,23 +331,28 @@ class ScriptExecutor:
                 elapsed_ms = (time.time() - start_time) * 1000
                 if elapsed_ms >= timeout:
                     self.log(f"监测超时：{timeout}ms", "WARNING")
-                    return False
+                    return False, None
 
             screenshot = ImageGrab.grab()
 
             normal_matches = self.image_matcher.find_in_region(
                 screenshot, normal_img, region, confidence=0.8,
             )
+            changed_matches = self.image_matcher.find_in_region(
+                screenshot, changed_img, region, confidence=0.8,
+            )
+
             if normal_matches:
                 current_state = "normal"
+            elif changed_matches:
+                current_state = "changed"
             else:
-                changed_matches = self.image_matcher.find_in_region(
-                    screenshot, changed_img, region, confidence=0.8,
-                )
-                current_state = "changed" if changed_matches else "unknown"
+                current_state = "none"
+
+            self.log(f"[监测] 状态: {current_state}", "DEBUG")
 
             if last_state is not None and current_state != last_state:
-                self.log(f"状态变化：{last_state} -> {current_state}", "INFO")
+                self.log(f"[监测] 状态变化：{last_state} -> {current_state}", "INFO")
                 if on_changed is not None:
                     try:
                         on_changed(current_state)
@@ -346,7 +360,20 @@ class ScriptExecutor:
                         self.log(f"回调执行错误：{e}", "ERROR")
                 if sound is not None:
                     self.sound_notifier.play(sound)
-                return True
+                changed_coords = (changed_matches[0].screen_x, changed_matches[0].screen_y) if changed_matches else None
+                return True, changed_coords
+
+            if current_state == "changed":
+                self.log(f"[监测] 检测到变化态图标", "INFO")
+                if on_changed is not None:
+                    try:
+                        on_changed(current_state)
+                    except Exception as e:
+                        self.log(f"回调执行错误：{e}", "ERROR")
+                if sound is not None:
+                    self.sound_notifier.play(sound)
+                changed_coords = (changed_matches[0].screen_x, changed_matches[0].screen_y) if changed_matches else None
+                return True, changed_coords
 
             last_state = current_state
             time.sleep(interval_ms / 1000.0)

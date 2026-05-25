@@ -38,7 +38,8 @@ def main(executor):
         executor.log(f"图标状态变化: {new_state}", "WARNING")
 
     # 监测图标状态变化
-    result = executor.monitor_icon_state(
+    # 返回: (bool, tuple) -> (是否检测到变化, 全屏坐标)
+    changed, coords = executor.monitor_icon_state(
         region=region,
         normal_template="icon_before",
         changed_template="icon_after",
@@ -47,6 +48,10 @@ def main(executor):
         sound={"type": "system"},
         timeout=60000
     )
+
+    if changed and coords:
+        x, y = coords
+        executor.log(f"检测到图标状态变化，位置: ({x}, {y})", "INFO")
     return True
 ```
 
@@ -72,10 +77,17 @@ python_script: "main.py"
 | `region` | dict | 监测区域，格式 `{"x": (x1, x2), "y": (y1, y2)}`，值为 0.0-1.0 百分比 |
 | `normal_template` | str | 正常态图标名称 |
 | `changed_template` | str | 变化后图标名称 |
-| `interval_ms` | int | 检测间隔（毫秒），默认 1000ms |
-| `on_changed` | callable | 回调函数，参数为 `"normal"` 或 `"changed"` |
+| `interval_ms` | int | 检测间隔（毫秒），默认 2000ms |
+| `on_changed` | callable | 回调函数，参数为 `"normal"`、`"changed"` 或 `"none"` |
 | `sound` | dict | 声音配置，`{"type": "system"}` 或 `{"type": "file", "file": "alert.wav"}` |
 | `timeout` | int | 超时时间（毫秒），默认无限 |
+
+## 返回值
+
+| 返回值 | 说明 |
+|--------|------|
+| `(True, (x, y))` | icon 已变化，返回变化图标的**全屏坐标** |
+| `(False, None)` | 超时或未检测到变化 |
 
 ## 注意事项
 
