@@ -300,16 +300,24 @@ class ScriptExecutor:
                     return False, None
 
             screenshot = ImageGrab.grab()
-            self.log(f"[监测] 截图尺寸: {screenshot.size}", "DEBUG")
+            self.log(f"[监测] 截图尺寸: {screenshot.size}", "INFO")
 
             # 解析模板路径
             normal_path = self._resolve_image_path(normal_template, self.current_script_dir)
             changed_path = self._resolve_image_path(changed_template, self.current_script_dir)
-            self.log(f"[监测] 模板路径 - normal: {normal_path}, changed: {changed_path}", "DEBUG")
+            self.log(f"[监测] 模板路径 - normal: {normal_path}, changed: {changed_path}", "INFO")
             
             if not normal_path or not changed_path:
                 self.log(f"[监测] 模板路径解析失败", "ERROR")
                 return False, None
+
+            # 直接用 pyautogui 测试
+            import pyautogui
+            try:
+                loc = pyautogui.locateCenterOnScreen(str(normal_path), confidence=0.8)
+                self.log(f"[监测] pyautogui 直接检测: {loc}", "INFO")
+            except Exception as e:
+                self.log(f"[监测] pyautogui 检测失败: {e}", "ERROR")
 
             normal_matches = self.image_matcher.find_in_region(
                 screenshot, str(normal_path), region, confidence=0.8,
@@ -318,7 +326,7 @@ class ScriptExecutor:
                 screenshot, str(changed_path), region, confidence=0.8,
             )
 
-            self.log(f"[监测] 匹配结果 - normal: {len(normal_matches)}, changed: {len(changed_matches)}", "DEBUG")
+            self.log(f"[监测] 匹配结果 - normal: {len(normal_matches)}, changed: {len(changed_matches)}", "INFO")
 
             if normal_matches:
                 current_state = "normal"
