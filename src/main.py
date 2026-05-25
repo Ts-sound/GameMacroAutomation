@@ -19,10 +19,6 @@ def cli():
         help="输出 YAML 文件路径"
     )
     record_parser.add_argument(
-        "--window", "-w",
-        help="游戏窗口标题 (可选，自动检测)"
-    )
-    record_parser.add_argument(
         "--screenshot-size", "-s",
         type=int,
         default=400,
@@ -34,10 +30,6 @@ def cli():
     run_parser.add_argument(
         "script",
         help="YAML 脚本文件路径"
-    )
-    run_parser.add_argument(
-        "--window", "-w",
-        help="游戏窗口标题 (覆盖脚本配置)"
     )
     run_parser.add_argument(
         "--log-level", "-l",
@@ -88,14 +80,11 @@ def cli():
     
     # 根据命令调用对应模块
     if args.command == "record":
-        from src.recorder.recorder import record_script, list_windows
-        if not args.window:
-            list_windows()
-            return
-        record_script(args.output, args.window, args.screenshot_size)
+        from src.recorder.recorder import record_script
+        record_script(args.output, args.screenshot_size)
     elif args.command == "run":
         from src.executor.executor import run_script
-        run_script(args.script, args.window, args.log_level)
+        run_script(args.script, args.log_level)
     elif args.command == "capture-zone":
         from src.tools.zone_captor import capture_zone
         capture_zone(args.output)

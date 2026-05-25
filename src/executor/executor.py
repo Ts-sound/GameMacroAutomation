@@ -2,10 +2,9 @@
 import logging
 import pyautogui
 from pathlib import Path
-from typing import Optional, Dict, Any
-from datetime import datetime
+from typing import Optional
 
-from src.core.config import ConfigManager, MacroScript, ScriptConfig
+from src.core.config import ConfigManager, MacroScript
 from src.core.screen import ScreenManager, WindowInfo
 from src.core.image import ImageMatcher
 from src.core.input import InputController
@@ -419,15 +418,10 @@ class ScriptExecutor:
 
 
 # CLI 辅助函数
-def run_script(script_path: str, window: Optional[str] = None, log_level: str = "INFO"):
+def run_script(script_path: str, log_level: str = "INFO"):
     """CLI: 运行脚本"""
     executor = ScriptExecutor()
     executor.setup_logging(log_level)
-    
-    # 如果指定了窗口，覆盖脚本配置
-    if window:
-        script = executor.load_script(script_path)
-        script.config.window_title = window
-    
+
     success = executor.execute(script_path)
     return 0 if success else 1

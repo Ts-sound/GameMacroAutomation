@@ -31,11 +31,11 @@ pip install -r requirements.txt
 ### 2. 录制脚本
 
 ```bash
-# 列出可用窗口
+# 录制脚本（自动全屏截图）
 python -m src.main record -o scripts/test.yaml
 
-# 指定窗口录制（截图区域大小 400x400）
-python -m src.main record -o scripts/test.yaml -w "游戏窗口" -s 400
+# 指定截图区域大小（默认 400x400）
+python -m src.main record -o scripts/test.yaml -s 600
 
 # 录制时按 F12 停止，或 Ctrl+C 强制退出
 ```
@@ -43,11 +43,8 @@ python -m src.main record -o scripts/test.yaml -w "游戏窗口" -s 400
 ### 3. 运行脚本
 
 ```bash
-# 运行录制的脚本
+# 运行脚本
 python -m src.main run scripts/test.yaml
-
-# 指定窗口运行
-python -m src.main run scripts/test.yaml -w "游戏窗口"
 ```
 
 ### 4. 其他命令
@@ -77,7 +74,6 @@ meta:
   version: "1.0"
 
 config:
-  window_title: "游戏窗口"
   log_level: "INFO"
 
 assets:
@@ -248,7 +244,7 @@ A: 可能是因为窗口被最小化或遮挡。确保窗口可见且在前台�
 
 A: 使用 `-s` 或 `--screenshot-size` 参数：
 ```bash
-python -m src.main record -o scripts/test.yaml -w "窗口" -s 600
+python -m src.main record -o scripts/test.yaml -s 600
 ```
 
 ### Q: 图像识别失败怎么办？
