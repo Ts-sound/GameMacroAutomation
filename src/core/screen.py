@@ -95,17 +95,22 @@ class ScreenManager:
         Returns:
             (width, height) 或 None
         """
+        print(f"DEBUG get_screen_by_id: screen_id={screen_id}")
         try:
             import screeninfo
 
             screens = screeninfo.get_monitors()
+            print(f"DEBUG get_screen_by_id: screens={[(s.width, s.height) for s in screens]}")
             if 0 <= screen_id < len(screens):
                 s = screens[screen_id]
                 return (s.width, s.height)
         except ImportError:
+            print(f"DEBUG get_screen_by_id: screeninfo not available, using default")
             pass
         if screen_id == 0:
-            return (1920, 1080)
+            result = (1920, 1080)
+            print(f"DEBUG get_screen_by_id: returning default {result}")
+            return result
         return None
 
     def region_to_absolute(
