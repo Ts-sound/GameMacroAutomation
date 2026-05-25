@@ -423,17 +423,36 @@ class ScriptExecutor:
         self.log(match_info, "INFO")
 
         if normal_matches:
+            normal_conf = 0.0
+            if normal_path:
+                normal_template = self.image_matcher.load_template(str(normal_path))
+                if normal_template:
+                    normal_conf = self.image_matcher.match_template_confidence(
+                        screenshot, normal_template
+                    )
             self.log(
                 f"[监测] 检测到 normal 图标，位置: "
-                f"({normal_matches[0].screen_x}, {normal_matches[0].screen_y})",
+                f"({normal_matches[0].screen_x}, {normal_matches[0].screen_y}), "
+                f"置信度: {normal_conf:.4f}",
                 "INFO",
             )
             return "normal", None
         elif changed_matches:
+            changed_conf = 0.0
+            if matched_template:
+                matched_idx = changed_template.index(matched_template)
+                if matched_idx < len(changed_paths):
+                    changed_template_img = self.image_matcher.load_template(
+                        str(changed_paths[matched_idx])
+                    )
+                    if changed_template_img:
+                        changed_conf = self.image_matcher.match_template_confidence(
+                            screenshot, changed_template_img
+                        )
             self.log(
                 f"[监测] 检测到 changed 图标 ({matched_template})，"
                 f"位置: ({changed_matches[0].screen_x}, "
-                f"{changed_matches[0].screen_y})",
+                f"{changed_matches[0].screen_y}), 置信度: {changed_conf:.4f}",
                 "INFO",
             )
             return "changed", (

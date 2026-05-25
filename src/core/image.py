@@ -208,3 +208,25 @@ class ImageMatcher:
         if h1 is None or h2 is None:
             raise ValueError("Failed to compute histogram for one or both images")
         return float(cv2.compareHist(h1, h2, cv2.HISTCMP_CORREL))
+
+    def match_template_confidence(
+        self, screen: Image.Image, template: Image.Image
+    ) -> float:
+        """计算模板匹配的置信度
+
+        Args:
+            screen: 屏幕截图
+            template: 模板图片
+
+        Returns:
+            0-1 置信度
+        """
+        try:
+            screen_cv = cv2.cvtColor(np.array(screen), cv2.COLOR_RGB2BGR)
+            template_cv = cv2.cvtColor(np.array(template), cv2.COLOR_RGB2BGR)
+
+            result = cv2.matchTemplate(screen_cv, template_cv, cv2.TM_CCOEFF_NORMED)
+            _, max_val, _, _ = cv2.minMaxLoc(result)
+            return float(max_val)
+        except Exception:
+            return 0.0
