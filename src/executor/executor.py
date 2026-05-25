@@ -354,12 +354,13 @@ class ScriptExecutor:
 
             if normal_matches:
                 current_state = "normal"
+                self.log(f"[监测] 检测到 normal 图标，位置: ({normal_matches[0].screen_x}, {normal_matches[0].screen_y})", "INFO")
             elif changed_matches:
                 current_state = "changed"
+                self.log(f"[监测] 检测到 changed 图标，位置: ({changed_matches[0].screen_x}, {changed_matches[0].screen_y})", "INFO")
             else:
                 current_state = "none"
-
-            self.log(f"[监测] 状态: {current_state}", "DEBUG")
+                self.log(f"[监测] 未检测到任何图标", "INFO")
 
             if last_state is not None and current_state != last_state:
                 self.log(f"[监测] 状态变化：{last_state} -> {current_state}", "INFO")
