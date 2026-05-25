@@ -289,7 +289,7 @@ class ScriptExecutor:
 
         self.log(f"开始监测图标状态：normal={normal_template}, changed={changed_template}, interval={interval_ms}ms", "INFO")
 
-        last_state: Optional[str] = None
+        last_state: str = "normal"  # 假设初始状态为 normal
         start_time = time.time()
 
         while True:
@@ -338,20 +338,9 @@ class ScriptExecutor:
                 current_state = "none"
                 self.log(f"[监测] 未检测到任何图标", "INFO")
 
-            if last_state is not None and current_state != last_state:
-                self.log(f"[监测] 状态变化：{last_state} -> {current_state}", "INFO")
-                if on_changed is not None:
-                    try:
-                        on_changed(current_state)
-                    except Exception as e:
-                        self.log(f"回调执行错误：{e}", "ERROR")
-                if sound is not None:
-                    self.sound_notifier.play(sound)
-                changed_coords = (changed_matches[0].screen_x, changed_matches[0].screen_y) if changed_matches else None
-                return True, changed_coords
-
-            if current_state == "changed":
-                self.log(f"[监测] 检测到变化态图标", "INFO")
+            # 只有从 normal -> changed 跳变时才触发提示音并返回
+            if current_state == "changed" and last_state == "normal":
+                self.log(f"[监测] 状态变化：normal -> changed，触发提示音！", "WARNING")
                 if on_changed is not None:
                     try:
                         on_changed(current_state)

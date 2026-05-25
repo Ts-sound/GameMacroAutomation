@@ -9,8 +9,8 @@ import time
 def main(executor):
     # 定义监测区域（百分比格式）
     region = {
-        "x": (0.3, 0.7),  # 30%-70% 屏幕宽度
-        "y": (0.3, 0.7)   # 30%-70% 屏幕高度
+        "x": (0.0, 1.0),  # 0%-100% 屏幕宽度
+        "y": (0.0, 1.0)   # 0%-100% 屏幕高度
     }
 
     executor.log("开始监测图标状态，循环检测...", "INFO")
@@ -23,14 +23,14 @@ def main(executor):
         # 监测图标状态变化
         # - normal_template: 正常态图标
         # - changed_template: 变化后图标
-        # - interval_ms: 检测间隔 (2秒)
+        # - interval_ms: 检测间隔 (500毫秒)
         # - on_changed: 状态变化回调
         # - sound: 发出提示音 (system 表示系统提示音)
         changed, coords = executor.monitor_icon_state(
             region=region,
             normal_template="icon_before",
             changed_template="icon_after",
-            interval_ms=2000,
+            interval_ms=500,
             on_changed=on_state_changed,
             sound={"type": "system"},
             timeout=60000  # 单次检测超时 60 秒
