@@ -456,10 +456,13 @@ class ScriptExecutor:
         """histogram 模式：基于直方图相似度检测图标状态"""
         from PIL import Image
 
-        rx = region.get("x", 0)
-        ry = region.get("y", 0)
-        rw = region.get("width", screenshot.width)
-        rh = region.get("height", screenshot.height)
+        screen_w, screen_h = screenshot.size
+        x_start, x_end = region.get("x", (0.0, 1.0))
+        y_start, y_end = region.get("y", (0.0, 1.0))
+        rx = round(x_start * screen_w)
+        ry = round(y_start * screen_h)
+        rw = round((x_end - x_start) * screen_w)
+        rh = round((y_end - y_start) * screen_h)
 
         sub_img = screenshot.crop((rx, ry, rx + rw, ry + rh))
         self.log(
