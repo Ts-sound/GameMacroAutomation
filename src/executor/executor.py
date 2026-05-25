@@ -397,7 +397,7 @@ class ScriptExecutor:
                     self.log("[监测] 声音播放完成", "INFO")
                 return True, changed_coords
 
-            # color 模式：颜色对比逻辑
+            # color 模式：颜色对比逻辑（在状态判断前执行）
             if color_mode == "color" and current_state is not None:
                 if last_state == "none" and current_state == "normal" and avg_color is not None:
                     initial_color = avg_color
@@ -409,7 +409,14 @@ class ScriptExecutor:
                     self.log(f"[监测-color] 当前颜色: {avg_color}, 初始颜色: {initial_color}, 差异: {diff:.4f} (阈值={color_diff_threshold})", "INFO")
                     if diff > color_diff_threshold:
                         self.log("[监测-color] 颜色变化超过阈值，状态变为 changed！", "WARNING")
+                        # 立即触发
                         current_state = "changed"
+                        if sound is not None:
+                            self.log("[监测-color] 触发提示音！", "WARNING")
+                            self.sound_notifier.play(sound)
+                        if on_changed is not None:
+                            on_changed(current_state)
+                        return True, changed_coords
 
             last_state = current_state
             time.sleep(interval_ms / 1000.0)
