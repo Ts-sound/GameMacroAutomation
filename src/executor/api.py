@@ -82,6 +82,7 @@ class ScriptAPI:
         timeout: Optional[int] = None,
         color_mode: str = "template",
         histogram_threshold: float = 0.7,
+        color_diff_threshold: float = 0.15,
     ) -> Tuple[bool, Optional[Tuple[int, int]]]:
         """
         监测图标状态变化
@@ -121,6 +122,7 @@ class ScriptAPI:
             timeout,
             color_mode=color_mode,
             histogram_threshold=histogram_threshold,
+            color_diff_threshold=color_diff_threshold,
         )
 
     # ========== 脚本控制 API ==========
