@@ -283,7 +283,7 @@ class ScriptExecutor:
         sound: Optional[dict] = None,
         timeout: Optional[int] = None,
         color_mode: str = "pixel",
-        threshold: float = 0.8,
+        histogram_threshold: float = 0.7,
     ) -> Tuple[bool, Optional[Tuple[int, int]]]:
         """监测图标状态 - 内部方法
 
@@ -297,7 +297,7 @@ class ScriptExecutor:
 
         Args:
             color_mode: "pixel" 使用模板匹配，"histogram" 使用直方图比较
-            threshold: histogram 模式下的相似度阈值
+            histogram_threshold: histogram 模式下的相似度阈值
         """
         if isinstance(changed_template, str):
             changed_template = [changed_template]
@@ -347,7 +347,7 @@ class ScriptExecutor:
                     normal_path,
                     changed_template,
                     changed_paths,
-                    threshold,
+                    histogram_threshold,
                 )
             else:
                 current_state, changed_coords = self._monitor_icon_state_pixel(
@@ -451,7 +451,7 @@ class ScriptExecutor:
         normal_path: Path,
         changed_template: List[str],
         changed_paths: List[Path],
-        threshold: float,
+        histogram_threshold: float,
     ) -> Tuple[str, Optional[Tuple[int, int]]]:
         """histogram 模式：基于直方图相似度检测图标状态"""
         from PIL import Image
@@ -478,11 +478,11 @@ class ScriptExecutor:
             return "none", None
 
         self.log(
-            f"[监测-hist] normal 相似度: {similarity:.4f} (阈值={threshold})",
+            f"[监测-hist] normal 相似度: {similarity:.4f} (阈值={histogram_threshold})",
             "INFO",
         )
 
-        if similarity > threshold:
+        if similarity > histogram_threshold:
             self.log("[监测-hist] 检测到 normal 图标", "INFO")
             return "normal", None
 
@@ -497,11 +497,11 @@ class ScriptExecutor:
                 continue
 
             self.log(
-                f"[监测-hist] changed ({tpl}) 相似度: {sim:.4f} (阈值={threshold})",
+                f"[监测-hist] changed ({tpl}) 相似度: {sim:.4f} (阈值={histogram_threshold})",
                 "INFO",
             )
 
-            if sim > threshold:
+            if sim > histogram_threshold:
                 self.log(f"[监测-hist] 检测到 changed 图标 ({tpl})", "INFO")
                 center_x = rx + rw // 2
                 center_y = ry + rh // 2
