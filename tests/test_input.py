@@ -32,24 +32,12 @@ class TestRecordedAction:
 
 
 class TestInputController:
-    def test_scale_coordinates(self):
-        """测试坐标缩放"""
-        controller = InputController(scale_factor=0.5)
-        scaled = controller.scale_coordinates(100, 200)
-        assert scaled == (50, 100)
-    
-    def test_scale_coordinates_default(self):
-        """测试默认缩放因子"""
-        controller = InputController()
-        scaled = controller.scale_coordinates(100, 200)
-        assert scaled == (100, 200)
-    
     def test_click(self):
         """测试点击"""
-        controller = InputController(scale_factor=0.5)
+        controller = InputController()
         with patch('pyautogui.click') as mock_click:
             controller.click(100, 200, button='left')
-            mock_click.assert_called_once_with(x=50, y=100, button='left')
+            mock_click.assert_called_once_with(x=100, y=200, button='left')
     
     def test_press_no_duration(self):
         """测试无持续时间按键"""
