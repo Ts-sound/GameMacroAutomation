@@ -1,0 +1,15 @@
+meta:
+  name: "图标状态变化监测示例 - histogram 模式"
+  version: "1.0"
+  description: "使用颜色直方图对比监测图标状态变化"
+
+config:
+  log_level: "DEBUG"
+
+assets:
+  images:
+    icon_before: "images/icon_before.png"
+    icon_after: "images/icon_after.png"
+    icon_after2: "images/icon_after2.png"
+
+python_script: "histogram_mode.py"

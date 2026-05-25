@@ -1,7 +1,7 @@
 meta:
-  name: "图标状态变化监测示例"
+  name: "图标状态变化监测示例 - template 模式"
   version: "1.0"
-  description: "监测图标状态变化，变化后发出提示音"
+  description: "使用 pyautogui 模板匹配监测图标状态变化"
 
 config:
   log_level: "DEBUG"
@@ -12,4 +12,4 @@ assets:
     icon_after: "images/icon_after.png"
     icon_after2: "images/icon_after2.png"
 
-python_script: "main.py"
+python_script: "template_mode.py"
