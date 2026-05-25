@@ -8,7 +8,7 @@ from typing import Callable, List, Optional, Tuple, Union
 from PIL import ImageGrab
 
 from src.core.config import ConfigManager, MacroScript
-from src.core.image import ImageMatcher
+from src.core.image import ImageMatcher, MatchResult
 from src.core.input import InputController
 from src.core.screen import ScreenManager
 from src.core.sound import SoundNotifier
