@@ -8,7 +8,7 @@ config:
 
 assets:
   images:
-    icon_before: "images/icon_before.png"
+    icon_before: "images/icon_before_nobg.png"
     icon_after: "images/icon_after.png"
     icon_after2: "images/icon_after2.png"
 
