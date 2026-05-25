@@ -452,33 +452,95 @@ class ScriptExecutor:
         changed_template: List[str],
         changed_paths: List[Path],
         histogram_threshold: float,
-    ) -> Tuple[str, Optional[Tuple[int, int]]]:
-        """histogram 模式：基于直方图相似度检测图标状态"""
+) -> Tuple[str, Optional[Tuple[int, int]]]:
+        """histogram 模式：基于直方图相似度检测图标状态
+
+        逻辑：
+        1. 用 pyautogui.locate 定位 icon 在屏幕上的位置
+        2. 截取该位置的子图
+        3. resize 到模板大小后对比直方图
+        """
+        import pyautogui
         from PIL import Image
 
-        screen_w, screen_h = screenshot.size
-        x_start, x_end = region.get("x", (0.0, 1.0))
-        y_start, y_end = region.get("y", (0.0, 1.0))
-        rx = round(x_start * screen_w)
-        ry = round(y_start * screen_h)
-        rw = round((x_end - x_start) * screen_w)
-        rh = round((y_end - y_start) * screen_h)
-
-        sub_img = screenshot.crop((rx, ry, rx + rw, ry + rh))
-        self.log(
-            f"[监测-hist] 截取区域子图: ({rx},{ry},{rx+rw},{ry+rh}), "
-            f"尺寸={sub_img.size}",
-            "DEBUG",
-        )
-
-        normal_img = Image.open(str(normal_path)).convert("RGB")
-        normal_img = normal_img.resize(sub_img.size, Image.Resampling.LANCZOS)
-
+        normal_location = None
         try:
-            similarity = self.image_matcher.compare_histogram(sub_img, normal_img)
-        except ValueError as e:
-            self.log(f"[监测-hist] 直方图计算失败: {e}", "ERROR")
-            return "none", None
+            normal_location = pyautogui.locate(
+                str(normal_path), screenshot, confidence=0.8
+            )
+        except Exception as e:
+            self.log(f"[监测-hist] normal 定位失败: {e}", "DEBUG")
+
+        if normal_location:
+            x, y, w, h = normal_location
+            center_x, center_y = x + w // 2, y + h // 2
+            sub_img = screenshot.crop((x, y, x + w, y + h))
+            self.log(
+                f"[监测-hist] 定位到 normal 图标: ({x},{y},{w},{h}), "
+                f"center=({center_x},{center_y}), 尺寸={sub_img.size}",
+                "INFO",
+            )
+
+            normal_img = Image.open(str(normal_path)).convert("RGB")
+            normal_img = normal_img.resize(sub_img.size, Image.Resampling.LANCZOS)
+
+            try:
+                similarity = self.image_matcher.compare_histogram(sub_img, normal_img)
+            except ValueError as e:
+                self.log(f"[监测-hist] normal 直方图计算失败: {e}", "ERROR")
+                return "none", None
+
+            self.log(
+                f"[监测-hist] normal 相似度: {similarity:.4f} (阈值={histogram_threshold})",
+                "INFO",
+            )
+
+            if similarity > histogram_threshold:
+                self.log("[监测-hist] 检测到 normal 图标（颜色匹配）", "INFO")
+                return "normal", (center_x, center_y)
+
+        for tpl, tpl_path in zip(changed_template, changed_paths):
+            changed_location = None
+            try:
+                changed_location = pyautogui.locate(
+                    str(tpl_path), screenshot, confidence=0.8
+                )
+            except Exception as e:
+                self.log(f"[监测-hist] {tpl} 定位失败: {e}", "DEBUG")
+
+            if changed_location:
+                x, y, w, h = changed_location
+                center_x, center_y = x + w // 2, y + h // 2
+                sub_img = screenshot.crop((x, y, x + w, y + h))
+                self.log(
+                    f"[监测-hist] 定位到 changed 图标 ({tpl}): "
+                    f"({x},{y},{w},{h}), center=({center_x},{center_y})",
+                    "INFO",
+                )
+
+                changed_img = Image.open(str(tpl_path)).convert("RGB")
+                changed_img = changed_img.resize(sub_img.size, Image.Resampling.LANCZOS)
+
+                try:
+                    sim = self.image_matcher.compare_histogram(sub_img, changed_img)
+                except ValueError as e:
+                    self.log(
+                        f"[监测-hist] changed 直方图计算失败 ({tpl}): {e}", "ERROR"
+                    )
+                    continue
+
+                self.log(
+                    f"[监测-hist] changed ({tpl}) 相似度: {sim:.4f} "
+                    f"(阈值={histogram_threshold})",
+                    "INFO",
+                )
+
+                if sim > histogram_threshold:
+                    self.log(f"[监测-hist] 检测到 changed 图标 ({tpl})", "INFO")
+                    return "changed", (center_x, center_y)
+
+        self.log("[监测-hist] 未定位到任何图标", "INFO")
+        return "none", None
 
         self.log(
             f"[监测-hist] normal 相似度: {similarity:.4f} (阈值={histogram_threshold})",
