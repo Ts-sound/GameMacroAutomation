@@ -5,16 +5,25 @@ import time
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple, Union
 
-import pyautogui
 from PIL import ImageGrab
 
 from src.core.config import ConfigManager, MacroScript
-from src.core.image import ImageMatcher, MatchResult
+from src.core.image import ImageMatcher
 from src.core.input import InputController
 from src.core.screen import ScreenManager
 from src.core.sound import SoundNotifier
 from src.executor.api import PythonRunner, ScriptAPI
+from src.executor.monitor_pixel import PixelMonitorStrategy
+from src.executor.monitor_histogram import HistogramMonitorStrategy
+from src.executor.monitor_color import ColorMonitorStrategy
 from src.script.validator import ScriptValidator
+
+MONITOR_STRATEGIES = {
+    "pixel": PixelMonitorStrategy(),
+    "template": PixelMonitorStrategy(),
+    "histogram": HistogramMonitorStrategy(),
+    "color": ColorMonitorStrategy(),
+}
 
 
 class ScriptExecutor:
@@ -284,6 +293,7 @@ class ScriptExecutor:
         timeout: Optional[int] = None,
         color_mode: str = "pixel",
         histogram_threshold: float = 0.7,
+        color_diff_threshold: float = 0.15,
     ) -> Tuple[bool, Optional[Tuple[int, int]]]:
         """监测图标状态 - 内部方法
 
@@ -296,8 +306,9 @@ class ScriptExecutor:
         超时或出错返回 (False, None)
 
         Args:
-            color_mode: "pixel" 使用模板匹配，"histogram" 使用直方图比较
+            color_mode: "pixel" 模板匹配，"histogram" 直方图对比，"color" 颜色对比
             histogram_threshold: histogram 模式下的相似度阈值
+            color_diff_threshold: color 模式下的颜色差异阈值 (0-1)
         """
         if isinstance(changed_template, str):
             changed_template = [changed_template]
@@ -328,8 +339,12 @@ class ScriptExecutor:
             "INFO",
         )
 
-        last_state: str = "normal"
+        last_state: str = "none"  # 初始状态为 none，等待首次检测到图标
+        initial_color: Optional[tuple] = None  # 初始颜色 (R, G, B)
         start_time = time.time()
+
+        # 获取策略
+        strategy = MONITOR_STRATEGIES.get(color_mode, MONITOR_STRATEGIES["template"])
 
         while True:
             if timeout is not None:
@@ -340,23 +355,31 @@ class ScriptExecutor:
 
             screenshot = ImageGrab.grab()
 
-            if color_mode == "histogram":
-                current_state, changed_coords = self._monitor_icon_state_histogram(
+            # 调用策略检测
+            if color_mode == "color":
+                current_state, changed_coords, avg_color = strategy.detect(
                     screenshot,
-                    region,
                     normal_path,
-                    changed_template,
-                    changed_paths,
-                    histogram_threshold,
+                    region=region,
+                    changed_template=changed_template,
+                    changed_paths=changed_paths,
+                )
+            elif color_mode == "histogram":
+                current_state, changed_coords, _ = strategy.detect(
+                    screenshot,
+                    normal_path,
+                    region=region,
+                    changed_template=changed_template,
+                    changed_paths=changed_paths,
+                    histogram_threshold=histogram_threshold,
                 )
             else:
-                current_state, changed_coords = self._monitor_icon_state_pixel(
+                current_state, changed_coords, _ = strategy.detect(
                     screenshot,
-                    region,
-                    normal_template,
                     normal_path,
-                    changed_template,
-                    changed_paths,
+                    region=region,
+                    changed_template=changed_template,
+                    changed_paths=changed_paths,
                 )
 
             if current_state == "changed" and last_state == "normal":
@@ -373,229 +396,22 @@ class ScriptExecutor:
                     self.log("[监测] 声音播放完成", "INFO")
                 return True, changed_coords
 
+            # color 模式：颜色对比逻辑
+            if color_mode == "color" and current_state is not None:
+                if last_state == "none" and current_state == "normal" and avg_color is not None:
+                    initial_color = avg_color
+                    self.log(f"[监测-color] 记录初始颜色: {initial_color}", "INFO")
+                elif last_state == "normal" and current_state == "normal" and initial_color is not None and avg_color is not None:
+                    # 计算颜色差异
+                    from src.executor.monitor_color import ColorMonitorStrategy
+                    diff = ColorMonitorStrategy.compute_color_diff(initial_color, avg_color)
+                    self.log(f"[监测-color] 颜色差异: {diff:.4f} (阈值={color_diff_threshold})", "INFO")
+                    if diff > color_diff_threshold:
+                        self.log("[监测-color] 颜色变化超过阈值，状态变为 changed！", "WARNING")
+                        current_state = "changed"
+
             last_state = current_state
             time.sleep(interval_ms / 1000.0)
-
-    def _monitor_icon_state_pixel(
-        self,
-        screenshot,
-        region: dict,
-        normal_template: str,
-        normal_path: Path,
-        changed_template: List[str],
-        changed_paths: List[Path],
-    ) -> Tuple[str, Optional[Tuple[int, int]]]:
-        """pixel 模式：基于模板匹配检测图标状态"""
-        self.log(f"[监测] 截图尺寸: {screenshot.size}", "INFO")
-
-        import pyautogui
-
-        try:
-            loc = pyautogui.locateCenterOnScreen(str(normal_path), confidence=0.8)
-            self.log(f"[监测] pyautogui 直接检测: {loc}", "INFO")
-        except Exception as e:
-            self.log(f"[监测] pyautogui 检测失败: {e}", "ERROR")
-
-        normal_matches = self.image_matcher.find_in_region(
-            screenshot,
-            str(normal_path),
-            region,
-            confidence=0.8,
-        )
-
-        changed_matches = []
-        matched_template = None
-        for tpl, tpl_path in zip(changed_template, changed_paths):
-            matches = self.image_matcher.find_in_region(
-                screenshot,
-                str(tpl_path),
-                region,
-                confidence=0.8,
-            )
-            if matches:
-                changed_matches = matches
-                matched_template = tpl
-                break
-
-        match_info = (
-            f"[监测] 匹配结果 - normal: {len(normal_matches)}, "
-            f"changed: {len(changed_matches)}"
-        )
-        if matched_template:
-            match_info += f" (matched: {matched_template})"
-        self.log(match_info, "INFO")
-
-        if normal_matches:
-            normal_conf = 0.0
-            if normal_path:
-                normal_template = self.image_matcher.load_template(str(normal_path))
-                if normal_template:
-                    normal_conf = self.image_matcher.match_template_confidence(
-                        screenshot, normal_template
-                    )
-            self.log(
-                f"[监测] 检测到 normal 图标，位置: "
-                f"({normal_matches[0].screen_x}, {normal_matches[0].screen_y}), "
-                f"置信度: {normal_conf:.4f}",
-                "INFO",
-            )
-            return "normal", None
-        elif changed_matches:
-            changed_conf = 0.0
-            if matched_template:
-                matched_idx = changed_template.index(matched_template)
-                if matched_idx < len(changed_paths):
-                    changed_template_img = self.image_matcher.load_template(
-                        str(changed_paths[matched_idx])
-                    )
-                    if changed_template_img:
-                        changed_conf = self.image_matcher.match_template_confidence(
-                            screenshot, changed_template_img
-                        )
-            self.log(
-                f"[监测] 检测到 changed 图标 ({matched_template})，"
-                f"位置: ({changed_matches[0].screen_x}, "
-                f"{changed_matches[0].screen_y}), 置信度: {changed_conf:.4f}",
-                "INFO",
-            )
-            return "changed", (
-                changed_matches[0].screen_x,
-                changed_matches[0].screen_y,
-            )
-        else:
-            self.log("[监测] 未检测到任何图标", "INFO")
-            return "none", None
-
-    def _monitor_icon_state_histogram(
-        self,
-        screenshot,
-        region: dict,
-        normal_path: Path,
-        changed_template: List[str],
-        changed_paths: List[Path],
-        histogram_threshold: float,
-) -> Tuple[str, Optional[Tuple[int, int]]]:
-        """histogram 模式：基于直方图相似度检测图标状态
-
-        逻辑：
-        1. 用 pyautogui.locate 定位 icon 在屏幕上的位置
-        2. 截取该位置的子图
-        3. resize 到模板大小后对比直方图
-        """
-        import pyautogui
-        from PIL import Image
-
-        normal_location = None
-        try:
-            normal_location = pyautogui.locate(
-                str(normal_path), screenshot, confidence=0.8
-            )
-        except Exception as e:
-            self.log(f"[监测-hist] normal 定位失败: {e}", "DEBUG")
-
-        if normal_location:
-            x, y, w, h = normal_location
-            center_x, center_y = x + w // 2, y + h // 2
-            sub_img = screenshot.crop((x, y, x + w, y + h))
-            self.log(
-                f"[监测-hist] 定位到 normal 图标: ({x},{y},{w},{h}), "
-                f"center=({center_x},{center_y}), 尺寸={sub_img.size}",
-                "INFO",
-            )
-
-            normal_img = Image.open(str(normal_path)).convert("RGB")
-            normal_img = normal_img.resize(sub_img.size, Image.Resampling.LANCZOS)
-
-            try:
-                similarity = self.image_matcher.compare_histogram(sub_img, normal_img)
-            except ValueError as e:
-                self.log(f"[监测-hist] normal 直方图计算失败: {e}", "ERROR")
-                return "none", None
-
-            self.log(
-                f"[监测-hist] normal 相似度: {similarity:.4f} (阈值={histogram_threshold})",
-                "INFO",
-            )
-
-            if similarity > histogram_threshold:
-                self.log("[监测-hist] 检测到 normal 图标（颜色匹配）", "INFO")
-                return "normal", (center_x, center_y)
-
-        for tpl, tpl_path in zip(changed_template, changed_paths):
-            changed_location = None
-            try:
-                changed_location = pyautogui.locate(
-                    str(tpl_path), screenshot, confidence=0.8
-                )
-            except Exception as e:
-                self.log(f"[监测-hist] {tpl} 定位失败: {e}", "DEBUG")
-
-            if changed_location:
-                x, y, w, h = changed_location
-                center_x, center_y = x + w // 2, y + h // 2
-                sub_img = screenshot.crop((x, y, x + w, y + h))
-                self.log(
-                    f"[监测-hist] 定位到 changed 图标 ({tpl}): "
-                    f"({x},{y},{w},{h}), center=({center_x},{center_y})",
-                    "INFO",
-                )
-
-                changed_img = Image.open(str(tpl_path)).convert("RGB")
-                changed_img = changed_img.resize(sub_img.size, Image.Resampling.LANCZOS)
-
-                try:
-                    sim = self.image_matcher.compare_histogram(sub_img, changed_img)
-                except ValueError as e:
-                    self.log(
-                        f"[监测-hist] changed 直方图计算失败 ({tpl}): {e}", "ERROR"
-                    )
-                    continue
-
-                self.log(
-                    f"[监测-hist] changed ({tpl}) 相似度: {sim:.4f} "
-                    f"(阈值={histogram_threshold})",
-                    "INFO",
-                )
-
-                if sim > histogram_threshold:
-                    self.log(f"[监测-hist] 检测到 changed 图标 ({tpl})", "INFO")
-                    return "changed", (center_x, center_y)
-
-        self.log("[监测-hist] 未定位到任何图标", "INFO")
-        return "none", None
-
-        self.log(
-            f"[监测-hist] normal 相似度: {similarity:.4f} (阈值={histogram_threshold})",
-            "INFO",
-        )
-
-        if similarity > histogram_threshold:
-            self.log("[监测-hist] 检测到 normal 图标", "INFO")
-            return "normal", None
-
-        for tpl, tpl_path in zip(changed_template, changed_paths):
-            changed_img = Image.open(str(tpl_path)).convert("RGB")
-            changed_img = changed_img.resize(sub_img.size, Image.Resampling.LANCZOS)
-
-            try:
-                sim = self.image_matcher.compare_histogram(sub_img, changed_img)
-            except ValueError as e:
-                self.log(f"[监测-hist] changed 直方图计算失败 ({tpl}): {e}", "ERROR")
-                continue
-
-            self.log(
-                f"[监测-hist] changed ({tpl}) 相似度: {sim:.4f} (阈值={histogram_threshold})",
-                "INFO",
-            )
-
-            if sim > histogram_threshold:
-                self.log(f"[监测-hist] 检测到 changed 图标 ({tpl})", "INFO")
-                center_x = rx + rw // 2
-                center_y = ry + rh // 2
-                return "changed", (center_x, center_y)
-
-        self.log("[监测-hist] 未检测到任何匹配图标", "INFO")
-        return "none", None
 
     def _resolve_image_path(
         self, name: str, script_dir: Optional[Path] = None

@@ -162,8 +162,57 @@ config:
 ### 解决方案
 
 1. **`changed_template` 支持列表**：同时检测多个 changed 模板，任一匹配 → changed
-2. **新增 `color_mode` 参数**：支持 `"template"`（模板匹配）或 `"histogram"`（直方图对比）
-3. **`histogram` 模式**：截取 region 区域子图，与模板图做颜色直方图对比，解决同形异色问题
+2. **新增 `color_mode` 参数**：支持 `"template"`（模板匹配）、`"histogram"`（直方图对比）、`"color"`（颜色对比）
+3. **`color` 模式（推荐）**：使用去背景模板 + alpha 通道提取真实颜色，无需 icon_after
+
+### 模块拆分
+
+将 monitor 功能拆分为独立模块：
+
+```
+src/executor/
+├── __init__.py
+├── api.py              # 保持不变
+├── executor.py         # 主执行器（精简后）
+├── monitor_base.py     # 基类 MonitorStrategy
+├── monitor_pixel.py    # template/pixel 模式
+├── monitor_histogram.py # histogram 模式
+└── monitor_color.py    # color 模式
+```
+
+#### monitor_base.py - 基类接口
+
+```python
+from abc import ABC, abstractmethod
+from typing import Tuple, Optional, Any
+from pathlib import Path
+
+class MonitorStrategy(ABC):
+    @abstractmethod
+    def detect(
+        self,
+        screenshot,
+        normal_path: Path,
+        **kwargs
+    ) -> Tuple[str, Optional[Tuple[int, int]], Optional[Any]]:
+        """检测图标状态
+        
+        Returns:
+            (state, coordinates, extra_data)
+            - state: "none" | "normal" | "changed"
+            - coordinates: (x, y) or None
+            - extra_data: 额外数据（如 color 模式的 avg_color）
+        """
+        pass
+```
+
+#### 各模式实现
+
+| 类 | 文件 | 功能 |
+|----|------|------|
+| `PixelMonitorStrategy` | monitor_pixel.py | pyautogui 模板匹配 |
+| `HistogramMonitorStrategy` | monitor_histogram.py | 颜色直方图对比 |
+| `ColorMonitorStrategy` | monitor_color.py | alpha 通道提取颜色对比 |
 
 ### API 接口
 
@@ -172,8 +221,9 @@ def monitor_icon_state(
     region: dict,
     normal_template: str,
     changed_template: Union[str, List[str]],  # 支持列表
-    color_mode: str = "template",              # "template" | "histogram"
-    histogram_threshold: float = 0.7,          # 直方图相似度阈值
+    color_mode: str = "template",              # "template" | "histogram" | "color"
+    histogram_threshold: float = 0.7,          # histogram 模式阈值
+    color_diff_threshold: float = 0.15,        # color 模式阈值
     interval_ms: int = 2000,
     on_changed: Optional[Callable[[str], None]] = None,
     sound: Optional[dict] = None,
@@ -187,6 +237,30 @@ def monitor_icon_state(
 |------|------------|-------------|-------------|
 | "template" | locateOnScreen(normal) | 遍历 changed_template 列表，逐个 locateOnScreen | 任一匹配 → changed |
 | "histogram" | 截取 region → compute_histogram → 对比模板 | 遍历 changed_template 列表，逐个直方图对比 | 任一相似度 > threshold → changed |
+| **"color"** | 用去背景模板定位 → 提取 alpha 区域 → 计算平均颜色 | 对比初始颜色差异 | 差异 > threshold → changed |
+
+### color 模式原理（推荐）
+
+**核心**：使用去背景模板的 alpha 通道作为 mask，提取截图对应区域的真实颜色
+
+**流程**：
+1. 用去背景模板 `icon_before_nobg.png`（带透明通道）定位 icon 位置
+2. 截取该位置的子图
+3. 用模板的 alpha 通道作为 mask（透明区域→丢弃，不透明区域→保留）
+4. 只计算不透明区域的平均颜色 (R, G, B)
+5. 首次检测到图标时记录 `initial_color`，状态为 `"normal"`
+6. 后续检测对比 `current_color` vs `initial_color`
+7. 颜色差异 > `color_diff_threshold` → changed
+
+**颜色差异计算**：
+```python
+diff = sqrt((R1-R2)² + (G1-G2)² + (B1-B2)²) / 441.67  # 归一化到 0-1
+```
+
+**优势**：
+- 不需要 `icon_after` 模板
+- 模板去背景后，只检测图标本身的颜色变化
+- 对同形异色图标效果好
 
 ### histogram 模式原理
 
@@ -197,25 +271,30 @@ def monitor_icon_state(
 5. 返回 0-1 相似度，> threshold 判定为"相似"（即 unchanged）
 6. 相似度 < threshold → 判定为 changed
 
+### 初始状态
+
+- `last_state` 初始为 `"none"`（未检测到图标）
+- 首次检测到图标时记录初始颜色，状态为 `"normal"`
+- 只有从 `"normal"` → `"changed"` 才触发回调和声音
+
 ### YAML 配置示例
 
 ```yaml
 # scripts/attack.yaml
 assets:
   images:
-    icon_before: "images/icon_before.png"
-    icon_after: "images/icon_after.png"
+    icon_before: "images/icon_before_nobg.png"  # 使用去背景模板
 ```
 
 ```python
-# attack.py
+# attack.py - 使用 color 模式
 def main(executor):
     changed, coords = executor.monitor_icon_state(
         region={"x": (0.4, 0.6), "y": (0.1, 0.2)},
-        normal_template="icon_before",
-        changed_template="icon_after",
-        color_mode="histogram",
-        histogram_threshold=0.7,
+        normal_template="icon_before_nobg",   # 去背景模板
+        changed_template=[],                   # color 模式不需要
+        color_mode="color",                    # 颜色对比模式
+        color_diff_threshold=0.15,             # 颜色差异阈值
         interval_ms=500,
         timeout=60000
     )
@@ -225,15 +304,17 @@ def main(executor):
 
 - `color_mode` 默认 `"template"` → 旧脚本不传参行为不变
 - `changed_template` 传字符串 → 自动转为单元素列表处理
+- `"color"` 模式不需要 `changed_template`
 
 ### 术语表
 
 | 术语 | 含义 |
 |------|------|
 | region | 屏幕检测区域，百分比格式 `{"x": (0.0, 1.0), "y": (0.0, 1.0)}` |
-| color_mode | 颜色检测模式：`"template"` 模板匹配 / `"histogram"` 直方图对比 |
+| color_mode | 颜色检测模式：`"template"` 模板匹配 / `"histogram"` 直方图对比 / `"color"` 颜色对比 |
 | histogram_threshold | 直方图相似度阈值，0-1，越高越严格 |
-| changed_template | 变化后图标，支持 `str` 或 `List[str]` |
+| color_diff_threshold | 颜色差异阈值，0-1（默认 0.15 表示 15% 差异） |
+| changed_template | 变化后图标，支持 `str` 或 `List[str]`，color 模式不需要 |
 
 ## Future Improvements
 
