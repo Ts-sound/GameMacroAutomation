@@ -10,5 +10,6 @@ assets:
   images:
     icon_before: "images/icon_before.png"
     icon_after: "images/icon_after.png"
+    icon_after2: "images/icon_after2.png"
 
 python_script: "main.py"
