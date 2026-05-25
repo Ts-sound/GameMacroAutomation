@@ -97,8 +97,16 @@ class ImageMatcher:
         if confidence is None:
             confidence = self.default_confidence
 
-        screen_manager = ScreenManager()
-        abs_x, abs_y, abs_w, abs_h = screen_manager.region_to_absolute(region)
+        # 直接使用截图的尺寸，而不是通过 get_screen_by_id
+        screen_w, screen_h = screen.size
+        
+        x_start, x_end = region["x"]
+        y_start, y_end = region["y"]
+
+        abs_x = round(x_start * screen_w)
+        abs_y = round(y_start * screen_h)
+        abs_w = round((x_end - x_start) * screen_w)
+        abs_h = round((y_end - y_start) * screen_h)
 
         print(f"DEBUG find_in_region: screen={screen.size}, region={region}, abs=({abs_x},{abs_y},{abs_w},{abs_h})")
 
