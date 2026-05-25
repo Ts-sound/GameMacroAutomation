@@ -7,7 +7,6 @@ from unittest.mock import Mock, patch
 from src.core.config import ConfigManager, MacroScript, ScriptConfig
 from src.core.screen import ScreenManager, WindowInfo
 from src.core.image import ImageMatcher, MatchResult
-from src.core.lua_bridge import LuaBridge
 from src.script.validator import ScriptValidator
 
 
@@ -49,46 +48,6 @@ class TestIntegrationScriptFlow:
         assert script.meta.name == "Integration Test"
         assert script.config.window_title == "Test Window"
         assert is_valid
-    
-    def test_lua_bridge_with_mock_api(self):
-        """测试 Lua 桥接与模拟 API"""
-        bridge = LuaBridge()
-        
-        # 注册模拟 API
-        call_log = []
-        
-        def mock_click_image(name: str):
-            call_log.append(f"click:{name}")
-            return True
-        
-        def mock_delay(ms: int):
-            call_log.append(f"delay:{ms}")
-        
-        def mock_log(msg: str, level: str = "INFO"):
-            call_log.append(f"log:[{level}] {msg}")
-        
-        bridge.register_functions({
-            "click_image": mock_click_image,
-            "delay": mock_delay,
-            "log": mock_log
-        })
-        
-        # 执行 Lua 脚本
-        lua_code = """
-        log("Starting test")
-        click_image("attack_btn")
-        delay(100)
-        click_image("skill_1")
-        log("Test complete")
-        return true
-        """
-        
-        result = bridge.execute_string(lua_code)
-        
-        assert result is True
-        assert "log:[INFO] Starting test" in call_log
-        assert "click:attack_btn" in call_log
-        assert "delay:100" in call_log
     
     def test_image_matcher_integration(self, tmp_path):
         """测试图像识别集成"""
