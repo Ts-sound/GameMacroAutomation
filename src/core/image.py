@@ -100,6 +100,8 @@ class ImageMatcher:
         screen_manager = ScreenManager()
         abs_x, abs_y, abs_w, abs_h = screen_manager.region_to_absolute(region)
 
+        print(f"DEBUG find_in_region: screen={screen.size}, region={region}, abs=({abs_x},{abs_y},{abs_w},{abs_h})")
+
         matches: List[MatchResult] = []
 
         try:
@@ -113,6 +115,8 @@ class ImageMatcher:
                     abs_x <= center_x < abs_x + abs_w
                     and abs_y <= center_y < abs_y + abs_h
                 )
+                
+                print(f"DEBUG: 找到点 ({center_x}, {center_y}), 区域 ({abs_x},{abs_y})-({abs_x+abs_w},{abs_y+abs_h}), in_region={in_region}")
 
                 if in_region:
                     matches.append(
