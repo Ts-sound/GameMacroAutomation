@@ -52,13 +52,11 @@ class MouseStats:
 class InputController:
     """输入控制器 - 执行动作"""
     
-    def __init__(self, scale_factor: float = 1.0, logger: Optional[logging.Logger] = None):
+    def __init__(self, logger: Optional[logging.Logger] = None):
         """
         Args:
-            scale_factor: 坐标缩放因子
             logger: 日志记录器
         """
-        self.scale_factor = scale_factor
         self._logger = logger
         self.stats = MouseStats()
         
@@ -96,43 +94,31 @@ class InputController:
         """计算两点间距离"""
         return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
     
-    def scale_coordinates(self, x: int, y: int) -> Tuple[int, int]:
-        """应用缩放因子到坐标"""
-        scaled_x = int(x * self.scale_factor)
-        scaled_y = int(y * self.scale_factor)
-        return (scaled_x, scaled_y)
-    
     def click(self, x: int, y: int, button: str = 'left'):
         """
         点击指定坐标
         
         Args:
-            x, y: 坐标 (自动应用缩放)
+            x, y: 坐标
             button: 'left', 'right', 'middle'
         """
-        scaled_x, scaled_y = self.scale_coordinates(x, y)
-        pyautogui.click(x=scaled_x, y=scaled_y, button=button)
+        pyautogui.click(x=x, y=y, button=button)
         
         if self._logger:
-            self._logger.debug(f"[输入] 点击：({x},{y}) -> 缩放后 ({scaled_x},{scaled_y})")
+            self._logger.debug(f"[输入] 点击：({x},{y})")
     
-    def click_with_move(self, x: int, y: int, button: str = 'left', apply_scale: bool = True):
+    def click_with_move(self, x: int, y: int, button: str = 'left'):
         """
         移动到目标位置后点击（模拟真实鼠标行为）
         
         Args:
             x, y: 目标坐标
             button: 鼠标按钮
-            apply_scale: 是否应用缩放因子 (图像识别返回的坐标不需要缩放)
         """
         # 获取当前鼠标位置
         current_x, current_y = pyautogui.position()
         
-        # 应用缩放（如果需要）
-        if apply_scale:
-            target_x, target_y = self.scale_coordinates(x, y)
-        else:
-            target_x, target_y = int(x), int(y)
+        target_x, target_y = int(x), int(y)
         
         # 计算距离和时长
         distance = self._calculate_distance(current_x, current_y, target_x, target_y)
@@ -145,9 +131,8 @@ class InputController:
         
         if self._logger:
             speed = self.stats.avg_speed_pixels_per_second
-            scale_info = "缩放" if apply_scale else "原始"
             self._logger.debug(
-                f"[输入] 移动 ({scale_info}): ({current_x},{current_y}) -> ({target_x},{target_y}) | "
+                f"[输入] 移动: ({current_x},{current_y}) -> ({target_x},{target_y}) | "
                 f"距离={distance:.1f}px | 时长={duration:.3f}s | "
                 f"平均速度={speed:.1f}px/s"
             )

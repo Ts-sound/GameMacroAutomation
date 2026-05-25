@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
 from src.core.config import ConfigManager, MacroScript
-from src.core.screen import ScreenManager, WindowInfo
+from src.core.screen import ScreenManager
 from src.core.image import ImageMatcher, MatchResult
 from src.core.input import InputController
 from src.core.sound import SoundNotifier
@@ -18,7 +18,7 @@ from src.script.validator import ScriptValidator
 
 class ScriptExecutor:
     """脚本执行器"""
-    
+
     def __init__(self, scripts_dir: str = "scripts", assets_dir: str = "assets"):
         """
         Args:
@@ -27,88 +27,55 @@ class ScriptExecutor:
         """
         self.scripts_dir = Path(scripts_dir)
         self.assets_dir = Path(assets_dir)
-        
+
         self.config_manager = ConfigManager()
         self.validator = ScriptValidator(str(scripts_dir))
-        
+
         self.screen_manager = ScreenManager()
         self.image_matcher = ImageMatcher()
         self.sound_notifier = SoundNotifier()
         self.input_controller: Optional[InputController] = None
         self.python_runner: Optional[PythonRunner] = None
         self.script_api: Optional[ScriptAPI] = None
-        
+
         self._logger: Optional[logging.Logger] = None
-        self.current_window: Optional[WindowInfo] = None
-        self.scale_factor: float = 1.0
-        self.current_script_dir: Optional[Path] = None  # 当前脚本目录
-    
+        self.current_script_dir: Optional[Path] = None
+
     def setup_logging(self, log_level: str = "INFO", log_file: Optional[str] = None):
         """设置日志"""
         self._logger = logging.getLogger("executor")
         self._logger.setLevel(getattr(logging, log_level.upper()))
-        
-        # 控制台处理器
+
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.DEBUG)
         formatter = logging.Formatter('[%(levelname)s] %(message)s')
         console_handler.setFormatter(formatter)
         self._logger.addHandler(console_handler)
-        
-        # 文件处理器
+
         if log_file:
             file_handler = logging.FileHandler(log_file, encoding='utf-8')
             file_handler.setLevel(logging.DEBUG)
             file_handler.setFormatter(formatter)
             self._logger.addHandler(file_handler)
-    
+
     def log(self, message: str, level: str = "INFO"):
         """记录日志"""
         if self._logger:
             getattr(self._logger, level.lower())(message)
         else:
             print(f"[{level}] {message}")
-    
+
     def load_script(self, yaml_path: str) -> MacroScript:
         """加载脚本"""
         return self.config_manager.load_script(yaml_path)
-    
+
     def validate_script(self, yaml_path: str) -> tuple[bool, list]:
         """验证脚本"""
         return self.validator.validate_script_file(yaml_path)
-    
-    def setup_window(self, window_title: str) -> bool:
-        """
-        设置游戏窗口
-        
-        Args:
-            window_title: 窗口标题
-        
-        Returns:
-            是否成功
-        """
-        self.current_window = self.screen_manager.find_window(window_title)
-        if not self.current_window:
-            self.log(f"未找到窗口：{window_title}", "ERROR")
-            return False
-        
-        self.log(f"检测到窗口：{window_title} ({self.current_window.width}x{self.current_window.height})")
-        return True
-    
-    def setup_scale_factor(self, reference_resolution: tuple[int, int] = (1920, 1080)):
-        """设置缩放因子"""
-        if self.current_window:
-            current_size = (self.current_window.width, self.current_window.height)
-            self.scale_factor = self.screen_manager.calculate_scale_factor(
-                current_size, reference_resolution
-            )
-            self.log(f"自动计算缩放因子：{self.scale_factor:.2f}")
-        
-        self.input_controller = InputController(
-            scale_factor=self.scale_factor,
-            logger=self._logger
-        )
-        
+
+    def setup(self):
+        """初始化设置（全屏模式）"""
+        self.input_controller = InputController(logger=self._logger)
         self.script_api = ScriptAPI(self)
         self.python_runner = PythonRunner(self)
     
@@ -202,8 +169,8 @@ class ScriptExecutor:
                     "INFO"
                 )
                 if self.input_controller:
-                    # 图像识别返回的是屏幕实际坐标，直接点击，不应用缩放
-                    self.input_controller.click_with_move(x, y, apply_scale=False)
+                    # 图像识别返回的是屏幕实际坐标，直接点击
+                    self.input_controller.click_with_move(x, y)
                 self.log(f"[点击] ✓ 图像识别点击：{name} -> ({x}, {y})", "INFO")
                 return
             
@@ -223,8 +190,8 @@ class ScriptExecutor:
                     "WARNING"
                 )
                 if self.input_controller:
-                    # 图像识别返回的是屏幕实际坐标，直接点击，不应用缩放
-                    self.input_controller.click_with_move(x, y, apply_scale=False)
+                    # 图像识别返回的是屏幕实际坐标，直接点击
+                    self.input_controller.click_with_move(x, y)
                 self.log(f"[点击] ⚠ 低置信度点击：{name} -> ({x}, {y})", "WARNING")
                 return
             
@@ -235,19 +202,15 @@ class ScriptExecutor:
                 try:
                     screen_x, screen_y = int(offset[0]), int(offset[1])
                     if self.input_controller:
-                        # 应用缩放因子
-                        scaled_x = int(screen_x * self.scale_factor)
-                        scaled_y = int(screen_y * self.scale_factor)
-                        self.input_controller.click_with_move(scaled_x, scaled_y)
+                        self.input_controller.click_with_move(screen_x, screen_y)
                     elapsed = (time.time() - start_time) * 1000
                     self.log(
                         f"[识别] → Fallback | {name} | "
-                        f"screen=({screen_x},{screen_y}) | "
-                        f"scaled=({scaled_x},{scaled_y}) | "
+                        f"pos=({screen_x},{screen_y}) | "
                         f"耗时={elapsed:.1f}ms",
                         "INFO"
                     )
-                    self.log(f"[点击] → Fallback 点击：{name} -> ({scaled_x}, {scaled_y})", "INFO")
+                    self.log(f"[点击] → Fallback 点击：{name} -> ({screen_x}, {screen_y})", "INFO")
                     return
                 except Exception as e:
                     self.log(f"[识别] Fallback 失败：{e}", "ERROR")
@@ -445,11 +408,8 @@ class ScriptExecutor:
         # 设置当前脚本目录（用于查找 images 文件夹）
         self.current_script_dir = Path(yaml_path).parent
         
-        # 设置窗口
-        if script.config.window_title:
-            if not self.setup_window(script.config.window_title):
-                return False
-            self.setup_scale_factor(script.config.reference_resolution)
+        # 初始化（全屏模式）
+        self.setup()
         
         if script.python_script:
             return self._execute_python_script(script.python_script)

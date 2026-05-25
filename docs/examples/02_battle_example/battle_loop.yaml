@@ -6,7 +6,6 @@ meta:
   created_by: "manual"
 
 config:
-  window_title: "游戏窗口"
   log_level: "INFO"
   retry_times: 3
   default_timeout: 5000
