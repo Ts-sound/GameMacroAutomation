@@ -51,8 +51,7 @@ class TestScreenManager:
     def test_get_screen_by_id_default(self):
         """测试主屏幕默认值"""
         manager = ScreenManager()
-        with patch.object(manager, "get_screen_by_id", return_value=None):
-            result = manager.get_screen_by_id(0)
+        result = manager.get_screen_by_id(0)
         assert result == (1920, 1080)
 
     def test_region_to_absolute_full_screen(self):
