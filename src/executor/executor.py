@@ -307,6 +307,11 @@ class ScriptExecutor:
                     return False, None
 
             screenshot = ImageGrab.grab()
+            self.log(f"[监测] 截图尺寸: {screenshot.size}", "DEBUG")
+
+            normal_path = self._resolve_image_path(normal_template, self.current_script_dir)
+            changed_path = self._resolve_image_path(changed_template, self.current_script_dir)
+            self.log(f"[监测] 模板路径 - normal: {normal_path}, changed: {changed_path}", "DEBUG")
 
             normal_matches = self.image_matcher.find_in_region(
                 screenshot, normal_img, region, confidence=0.8,
@@ -314,6 +319,8 @@ class ScriptExecutor:
             changed_matches = self.image_matcher.find_in_region(
                 screenshot, changed_img, region, confidence=0.8,
             )
+
+            self.log(f"[监测] 匹配结果 - normal: {len(normal_matches)}, changed: {len(changed_matches)}", "DEBUG")
 
             if normal_matches:
                 current_state = "normal"
