@@ -2,7 +2,9 @@
 import time
 import types
 from pathlib import Path
-from typing import Optional, Callable, Any
+from typing import Optional, Callable, Any, List
+
+from src.core.image import MatchResult
 
 
 class ScriptAPI:
@@ -47,6 +49,57 @@ class ScriptAPI:
         """等待图片出现"""
         return self._executor._wait_image(name, timeout)
     
+    # ========== 区域检测 API ==========
+
+    def detect_in_region(
+        self,
+        region: dict,
+        template_name: str,
+        confidence: float = 0.8,
+    ) -> List[MatchResult]:
+        """
+        在指定百分比区域内检测模板
+
+        Args:
+            region: 百分比区域 {"x": (x1, x2), "y": (y1, y2)}
+            template_name: 模板名称（会通过 _resolve_image_path 解析）
+            confidence: 置信度
+
+        Returns:
+            匹配结果列表
+        """
+        return self._executor._detect_in_region(region, template_name, confidence)
+
+    def monitor_icon_state(
+        self,
+        region: dict,
+        normal_template: str,
+        changed_template: str,
+        interval_ms: int = 1000,
+        on_changed: Optional[Callable[[str], None]] = None,
+        sound: Optional[dict] = None,
+        timeout: Optional[int] = None,
+    ) -> bool:
+        """
+        监测图标状态变化
+
+        Args:
+            region: 百分比区域
+            normal_template: 正常态模板名
+            changed_template: 变化态模板名
+            interval_ms: 检测间隔 (ms)
+            on_changed: 回调函数，参数为 "normal" 或 "changed"
+            sound: 声音配置 {"type": "system"} 或 {"type": "file", "file": "x.wav"}
+            timeout: 超时时间 (ms)，None 表示无限
+
+        Returns:
+            状态变化返回 True，超时返回 False
+        """
+        return self._executor._monitor_icon_state(
+            region, normal_template, changed_template,
+            interval_ms, on_changed, sound, timeout,
+        )
+
     # ========== 脚本控制 API ==========
     
     def run_script(self, name: str) -> bool:

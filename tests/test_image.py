@@ -1,6 +1,5 @@
 """ImageMatcher 模块测试"""
-import pytest
-from pathlib import Path
+
 from src.core.image import ImageMatcher, MatchResult
 
 
@@ -10,50 +9,73 @@ class TestMatchResult:
         result = MatchResult(x=100, y=100, width=50, height=50, confidence=0.9)
         assert result.center == (125, 125)
 
+    def test_screen_coordinates_default_none(self):
+        """测试屏幕坐标默认为 None"""
+        result = MatchResult(x=100, y=100, width=50, height=50, confidence=0.9)
+        assert result.screen_x is None
+        assert result.screen_y is None
+
+    def test_screen_coordinates_provided(self):
+        """测试传入屏幕坐标"""
+        result = MatchResult(
+            x=100,
+            y=100,
+            width=50,
+            height=50,
+            confidence=0.9,
+            screen_x=1920,
+            screen_y=1080,
+        )
+        assert result.screen_x == 1920
+        assert result.screen_y == 1080
+        assert result.center == (125, 125)
+
 
 class TestImageMatcher:
     def test_init_default_confidence(self):
         """测试默认置信度"""
         matcher = ImageMatcher()
         assert matcher.default_confidence == 0.8
-    
+
     def test_init_custom_confidence(self):
         """测试自定义置信度"""
         matcher = ImageMatcher(default_confidence=0.9)
         assert matcher.default_confidence == 0.9
-    
+
     def test_load_template_not_exists(self, tmp_path):
         """测试加载不存在的模板"""
         matcher = ImageMatcher()
         result = matcher.load_template(str(tmp_path / "nonexistent.png"))
         assert result is None
-    
+
     def test_load_template_and_cache(self, tmp_path):
         """测试加载模板并缓存"""
         from PIL import Image
-        test_img = Image.new('RGB', (50, 50), color='red')
+
+        test_img = Image.new("RGB", (50, 50), color="red")
         template_path = tmp_path / "test.png"
         test_img.save(template_path)
-        
+
         matcher = ImageMatcher()
         template = matcher.load_template(str(template_path))
         assert template is not None
-        
+
         # 测试缓存
         template2 = matcher.load_template(str(template_path))
         assert template2 is template
-    
+
     def test_clear_cache(self, tmp_path):
         """测试清除缓存"""
         from PIL import Image
-        test_img = Image.new('RGB', (50, 50), color='red')
+
+        test_img = Image.new("RGB", (50, 50), color="red")
         template_path = tmp_path / "test.png"
         test_img.save(template_path)
-        
+
         matcher = ImageMatcher()
         matcher.load_template(str(template_path))
         matcher.clear_cache()
-        
+
         # 缓存清除后可以再次加载
         template2 = matcher.load_template(str(template_path))
         assert template2 is not None

@@ -1,13 +1,17 @@
 """脚本执行器模块"""
 import logging
+import time
+
 import pyautogui
+from PIL import ImageGrab
 from pathlib import Path
-from typing import Optional
+from typing import Callable, List, Optional
 
 from src.core.config import ConfigManager, MacroScript
 from src.core.screen import ScreenManager, WindowInfo
-from src.core.image import ImageMatcher
+from src.core.image import ImageMatcher, MatchResult
 from src.core.input import InputController
+from src.core.sound import SoundNotifier
 from src.executor.api import PythonRunner, ScriptAPI
 from src.script.validator import ScriptValidator
 
@@ -29,6 +33,7 @@ class ScriptExecutor:
         
         self.screen_manager = ScreenManager()
         self.image_matcher = ImageMatcher()
+        self.sound_notifier = SoundNotifier()
         self.input_controller: Optional[InputController] = None
         self.python_runner: Optional[PythonRunner] = None
         self.script_api: Optional[ScriptAPI] = None
@@ -252,11 +257,99 @@ class ScriptExecutor:
             return False
         
         try:
-            # 使用 pyautogui.locateOnScreen 检查
             location = pyautogui.locateOnScreen(str(img_path), confidence=confidence)
             return location is not None
         except Exception:
             return False
+
+    def _detect_in_region(
+        self,
+        region: dict,
+        template_name: str,
+        confidence: float = 0.8,
+    ) -> List[MatchResult]:
+        """区域检测 - 内部方法"""
+        img_path = self._resolve_image_path(template_name, self.current_script_dir)
+        if not img_path:
+            self.log(f"图片不存在：{template_name}", "ERROR")
+            return []
+
+        template = self.image_matcher.load_template(str(img_path))
+        if template is None:
+            self.log(f"模板加载失败：{template_name}", "ERROR")
+            return []
+
+        screenshot = ImageGrab.grab()
+        results = self.image_matcher.find_in_region(screenshot, template, region, confidence)
+        self.log(f"区域检测 {template_name}：找到 {len(results)} 个匹配", "DEBUG")
+        return results
+
+    def _monitor_icon_state(
+        self,
+        region: dict,
+        normal_template: str,
+        changed_template: str,
+        interval_ms: int = 1000,
+        on_changed: Optional[Callable] = None,
+        sound: Optional[dict] = None,
+        timeout: Optional[int] = None,
+    ) -> bool:
+        """监测图标状态 - 内部方法"""
+        normal_path = self._resolve_image_path(normal_template, self.current_script_dir)
+        changed_path = self._resolve_image_path(changed_template, self.current_script_dir)
+
+        if not normal_path:
+            self.log(f"正常态模板不存在：{normal_template}", "ERROR")
+            return False
+        if not changed_path:
+            self.log(f"变化态模板不存在：{changed_template}", "ERROR")
+            return False
+
+        normal_img = self.image_matcher.load_template(str(normal_path))
+        changed_img = self.image_matcher.load_template(str(changed_path))
+
+        if normal_img is None or changed_img is None:
+            self.log("模板加载失败", "ERROR")
+            return False
+
+        self.log(f"开始监测图标状态：normal={normal_template}, changed={changed_template}", "INFO")
+
+        last_state: Optional[str] = None
+        start_time = time.time()
+
+        while True:
+            if timeout is not None:
+                elapsed_ms = (time.time() - start_time) * 1000
+                if elapsed_ms >= timeout:
+                    self.log(f"监测超时：{timeout}ms", "WARNING")
+                    return False
+
+            screenshot = ImageGrab.grab()
+
+            normal_matches = self.image_matcher.find_in_region(
+                screenshot, normal_img, region, confidence=0.8,
+            )
+            if normal_matches:
+                current_state = "normal"
+            else:
+                changed_matches = self.image_matcher.find_in_region(
+                    screenshot, changed_img, region, confidence=0.8,
+                )
+                current_state = "changed" if changed_matches else "unknown"
+
+            if last_state is not None and current_state != last_state:
+                self.log(f"状态变化：{last_state} -> {current_state}", "INFO")
+                if on_changed is not None:
+                    try:
+                        on_changed(current_state)
+                    except Exception as e:
+                        self.log(f"回调执行错误：{e}", "ERROR")
+                if sound is not None:
+                    self.sound_notifier.play(sound)
+                return True
+
+            last_state = current_state
+            time.sleep(interval_ms / 1000.0)
     
     def _resolve_image_path(self, name: str, script_dir: Optional[Path] = None) -> Optional[Path]:
         """解析图片路径"""

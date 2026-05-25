@@ -32,6 +32,8 @@ graph TD
         CM[ConfigManager]
         LOG[Logger]
         SA[ScriptAPI]
+        DD[Detector]
+        SN[SoundNotifier]
     end
 
     CLI1 --> REC
@@ -45,17 +47,24 @@ graph TD
     EXE --> IM
     EXE --> CM
     EXE --> LOG
+    EXE --> DD
+    EXE --> SN
 
     SA --> SM
     SA --> IC
     SA --> IM
+    SA --> DD
+    SA --> SN
+    DD --> SM
+    DD --> IM
+    SN --> SM
 
     classDef cli fill:#90EE90
     classDef module fill:#87CEEB
     classDef core fill:#DDA0DD
     class CLI1,CLI2,CLI3,CLI4,CLI5,CLI6 cli
     class REC,EXE,VAL,ZC module
-    class SM,IC,IM,CM,LOG,SA core
+    class SM,IC,IM,CM,LOG,SA,DD,SN core
 ```
 
 ## Modules
@@ -63,6 +72,8 @@ graph TD
 | Module | Responsibility | Documentation |
 |--------|---------------|---------------|
 | core | Screen, input, image, config, logging | [core/](core/README.md) |
+| core/detector | Region-based template detection | - |
+| core/sound | Sound notification (system/file) | - |
 | recorder | Record mouse/keyboard → YAML | [recorder/](recorder/README.md) |
 | executor | Execute Python scripts with API | [executor/](executor/README.md) |
 | script | YAML validation and management | [script/](script/README.md) |
@@ -131,6 +142,78 @@ classDiagram
 | `loop_while` | condition, body, max_iter, interval | void | Loop while condition true |
 | `loop_times` | count, body, delay_ms | void | Loop fixed times |
 | `loop_until` | condition, body, timeout, interval | void | Loop until condition true |
+| `detect_in_region` | region, template_name, confidence | List[MatchResult] | Detect templates in percentage region |
+| `monitor_icon_state` | region, normal, changed, interval, on_changed | bool | Monitor state change with callback |
+
+### Region Detection
+
+#### Region Format (Percentage-based)
+
+```python
+region = {
+    "x": (0.0, 0.5),  # Left-closed, right-open interval: 0% to 50% of screen width
+    "y": (0.0, 1.0)   # 0% to 100% of screen height
+}
+```
+
+- **Coordinate system**: Screen absolute coordinates
+- **Reference**: Current screen (primary) or specified by screen_id
+- **Left (x=0)** to **Right (x=1)**, **Top (y=0)** to **Bottom (y=1)**
+
+#### detect_in_region
+
+Detect all occurrences of a template within a percentage-defined screen region.
+
+```python
+results = executor.detect_in_region(
+    region={"x": (0.4, 0.6), "y": (0.1, 0.2)},  # Percentage region
+    template_name="boss_icon",                   # Template name in assets
+    confidence=0.8                               # Optional, default 0.8
+) -> List[MatchResult]
+```
+
+#### monitor_icon_state
+
+Continuously monitor an icon's state change. Play sound and trigger callback when state changes.
+
+```python
+# Monitor state change with callback
+def on_state_change(new_state: str):  # "normal" or "changed"
+    executor.log(f"State changed to: {new_state}")
+
+executor.monitor_icon_state(
+    region={"x": (0.4, 0.6), "y": (0.1, 0.2)},
+    normal_template="boss_hp_normal",
+    changed_template="boss_hp_low",
+    interval_ms=1000,
+    on_changed=on_state_change,
+    sound={"type": "system"},  # or {"type": "file", "file": "alert.wav"}
+    timeout=60000              # Optional, default no timeout
+)
+```
+
+#### MatchResult
+
+```python
+@dataclass
+class MatchResult:
+    x: int          # Center X relative to region (0 = left edge of region)
+    y: int          # Center Y relative to region
+    width: int      # Match width
+    height: int     # Match height
+    confidence: float
+    screen_x: int   # Absolute screen coordinate X
+    screen_y: int   # Absolute screen coordinate Y
+```
+
+### Terminology
+
+| Term | Format | Example |
+|------|--------|---------|
+| Region | `{"x": (float, float), "y": (float, float)}` | `{"x": (0.0, 0.5), "y": (0.0, 1.0)}` |
+| Percentage | Float 0.0-1.0 | 0.5 = 50% |
+| Sound config | `{"type": "system" \| "file", "file": str}` | `{"type": "file", "file": "alert.wav"}` |
+| State | String "normal" \| "changed" | `"normal"` |
 
 ## Script Architecture
 
