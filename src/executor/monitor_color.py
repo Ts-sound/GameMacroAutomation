@@ -10,40 +10,69 @@ import numpy as np
 
 
 class ColorMonitorStrategy:
-    """color 模式：基于 alpha 通道提取颜色对比"""
+    """color 模式：基于 alpha 通道提取颜色对比
+    
+    支持两种模式：
+    - 动态模式：每次都重新定位 icon 位置
+    - 固定模式：首次定位后，使用固定位置提取颜色
+    """
 
     def __init__(self):
         self._logger = logging.getLogger("monitor.color")
+        self._fixed_position: Optional[Tuple[int, int, int, int]] = None  # (x, y, w, h)
 
     def detect(
         self,
         screenshot,
         normal_path: Path,
+        use_fixed_position: bool = True,
         **kwargs
     ) -> Tuple[str, Optional[Tuple[int, int]], Optional[tuple]]:
         """检测图标状态
 
-        使用去背景模板的 alpha 通道作为 mask，提取截图对应区域的真实颜色
+        Args:
+            screenshot: PIL Image 截图
+            normal_path: 模板图片路径
+            use_fixed_position: 是否使用固定位置（首次定位后记录位置）
 
         Returns:
             (state, coordinates, avg_color)
-            - avg_color: (R, G, B) 平均颜色
         """
         normal_location = None
-        try:
-            normal_location = pyautogui.locate(
-                str(normal_path), screenshot, confidence=0.8
+
+        # 优先使用固定位置
+        if use_fixed_position and self._fixed_position:
+            x, y, w, h = self._fixed_position
+            center_x, center_y = x + w // 2, y + h // 2
+            sub_img = screenshot.crop((x, y, x + w, y + h))
+            self._logger.debug(
+                f"[监测-color] 使用固定位置: ({x},{y},{w},{h}), "
+                f"center=({center_x},{center_y})"
             )
-        except Exception as e:
-            self._logger.debug(f"[监测-color] normal 定位失败: {e}")
+        else:
+            # 动态定位
+            try:
+                normal_location = pyautogui.locate(
+                    str(normal_path), screenshot, confidence=0.8
+                )
+            except Exception as e:
+                self._logger.debug(f"[监测-color] normal 定位失败: {e}")
 
-        if not normal_location:
-            self._logger.info("[监测-color] 未定位到 normal 图标")
-            return "none", None, None
+            if not normal_location:
+                self._logger.info("[监测-color] 未定位到 normal 图标")
+                return "none", None, None
 
-        x, y, w, h = normal_location
-        center_x, center_y = x + w // 2, y + h // 2
-        sub_img = screenshot.crop((x, y, x + w, y + h))
+            x, y, w, h = normal_location
+            center_x, center_y = x + w // 2, y + h // 2
+            sub_img = screenshot.crop((x, y, x + w, y + h))
+
+            # 记录固定位置
+            if use_fixed_position:
+                self._fixed_position = (x, y, w, h)
+                self._logger.info(
+                    f"[监测-color] 首次定位，记录固定位置: ({x},{y},{w},{h}), "
+                    f"center=({center_x},{center_y})"
+                )
 
         self._logger.info(
             f"[监测-color] 定位到图标: ({x},{y},{w},{h}), "
@@ -60,6 +89,10 @@ class ColorMonitorStrategy:
         )
 
         return "normal", (center_x, center_y), avg_color
+
+    def reset_position(self):
+        """重置固定位置，下次检测重新定位"""
+        self._fixed_position = None
 
     def _extract_color_with_mask(
         self, sub_img: Image.Image, template_path: Path
