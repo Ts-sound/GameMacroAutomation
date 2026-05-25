@@ -360,14 +360,17 @@ class ScriptExecutor:
                 )
 
             if current_state == "changed" and last_state == "normal":
-                self.log("[监测] 状态变化：normal -> changed，触发提示音！", "WARNING")
+                self.log(f"[监测] 状态变化：{last_state} -> {current_state}，触发提示音！", "WARNING")
+                self.log(f"[监测] sound 参数: {sound}", "INFO")
                 if on_changed is not None:
                     try:
                         on_changed(current_state)
                     except Exception as e:
                         self.log(f"回调执行错误：{e}", "ERROR")
                 if sound is not None:
+                    self.log("[监测] 准备播放声音...", "INFO")
                     self.sound_notifier.play(sound)
+                    self.log("[监测] 声音播放完成", "INFO")
                 return True, changed_coords
 
             last_state = current_state
