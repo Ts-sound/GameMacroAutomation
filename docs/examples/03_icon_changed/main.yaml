@@ -4,7 +4,7 @@ meta:
   description: "监测图标状态变化，变化后发出提示音"
 
 config:
-  log_level: "INFO"
+  log_level: "DEBUG"
 
 assets:
   images:

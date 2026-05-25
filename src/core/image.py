@@ -225,8 +225,11 @@ class ImageMatcher:
                 center_x, center_y = x + w // 2, y + h // 2
                 
                 # 检查是否在指定区域内
-                if (abs_x <= center_x < abs_x + abs_w and 
-                    abs_y <= center_y < abs_y + abs_h):
+                in_region = (abs_x <= center_x < abs_x + abs_w and 
+                    abs_y <= center_y < abs_y + abs_h)
+                print(f"DEBUG: 找到匹配 at ({center_x}, {center_y}), 区域 ({abs_x},{abs_y})-({abs_x+abs_w},{abs_y+abs_h}), 在区域内: {in_region}")
+                
+                if in_region:
                     matches.append(
                         MatchResult(
                             x=center_x - abs_x,
@@ -238,8 +241,8 @@ class ImageMatcher:
                             screen_y=center_y,
                         )
                     )
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"DEBUG: 检测异常: {e}")
 
         return matches
 

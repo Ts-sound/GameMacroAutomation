@@ -309,9 +309,17 @@ class ScriptExecutor:
             screenshot = ImageGrab.grab()
             self.log(f"[监测] 截图尺寸: {screenshot.size}", "DEBUG")
 
+            # 解析模板路径
             normal_path = self._resolve_image_path(normal_template, self.current_script_dir)
             changed_path = self._resolve_image_path(changed_template, self.current_script_dir)
             self.log(f"[监测] 模板路径 - normal: {normal_path}, changed: {changed_path}", "DEBUG")
+            
+            # 加载模板
+            if normal_img is None:
+                normal_img = self.image_matcher.load_template(str(normal_path))
+            if changed_img is None:
+                changed_img = self.image_matcher.load_template(str(changed_path))
+            self.log(f"[监测] 模板加载 - normal: {normal_img is not None}, changed: {changed_img is not None}", "DEBUG")
 
             normal_matches = self.image_matcher.find_in_region(
                 screenshot, normal_img, region, confidence=0.8,
