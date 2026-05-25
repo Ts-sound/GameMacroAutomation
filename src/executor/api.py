@@ -1,8 +1,9 @@
 """Python 脚本 API 封装"""
+
 import time
 import types
 from pathlib import Path
-from typing import Optional, Callable, Any, List, Tuple
+from typing import Any, Callable, List, Optional, Tuple, Union
 
 from src.core.image import MatchResult
 
@@ -10,23 +11,23 @@ from src.core.image import MatchResult
 class ScriptAPI:
     """
     Python 脚本可用的 API 封装
-    
+
     使用示例:
         def main(executor: ScriptAPI):
             executor.log("开始执行", "INFO")
             executor.click_image("attack_btn")
-            
+
             executor.loop_while(
                 lambda: executor.image_exists("boss_hp_bar"),
                 lambda: (
-                    executor.run_script("potion.yaml") 
+                    executor.run_script("potion.yaml")
                     if executor.image_exists("low_hp_warning")
                     else executor.click_image("attack_btn")
                 ) or executor.delay(1000),
                 max_iterations=100
             )
     """
-    
+
     def __init__(self, script_executor):
         """
         Args:
@@ -34,21 +35,21 @@ class ScriptAPI:
         """
         self._executor = script_executor
         self.loop_count = 0  # 当前循环计数
-    
+
     # ========== 图像识别 API ==========
-    
+
     def click_image(self, name: str, confidence: float = 0.8):
         """点击图片"""
         self._executor._click_image(name, confidence, None)
-    
+
     def image_exists(self, name: str, confidence: float = 0.8) -> bool:
         """检查图片是否存在"""
         return self._executor._image_exists(name, confidence)
-    
+
     def wait_image(self, name: str, timeout: int = 5000) -> bool:
         """等待图片出现"""
         return self._executor._wait_image(name, timeout)
-    
+
     # ========== 区域检测 API ==========
 
     def detect_in_region(
@@ -74,11 +75,13 @@ class ScriptAPI:
         self,
         region: dict,
         normal_template: str,
-        changed_template: str,
+        changed_template: Union[str, List[str]],
         interval_ms: int = 2000,
         on_changed: Optional[Callable[[str], None]] = None,
         sound: Optional[dict] = None,
         timeout: Optional[int] = None,
+        color_mode: str = "template",
+        histogram_threshold: float = 0.7,
     ) -> Tuple[bool, Optional[Tuple[int, int]]]:
         """
         监测图标状态变化
@@ -95,41 +98,57 @@ class ScriptAPI:
         Args:
             region: 百分比区域 {"x": (x1, x2), "y": (y1, y2)}
             normal_template: 正常态模板名
-            changed_template: 变化态模板名
+            changed_template: 变化态模板名，支持单个模板名或模板名列表
             interval_ms: 检测间隔 (ms)，默认 2000ms
             on_changed: 回调函数，参数为 "normal" 或 "changed"
             sound: 声音配置 {"type": "system"} 或 {"type": "file", "file": "x.wav"}
             timeout: 超时时间 (ms)，None 表示无限
+            color_mode: 颜色模式，"template"（模板匹配）或 "histogram"（直方图比较），
+                默认 "template"
+            histogram_threshold: 直方图比较阈值，仅 color_mode="histogram" 时生效，
+                值越大要求越严格，默认 0.7
 
         Returns:
             (bool, tuple): (是否检测到变化, 变化图标的全屏坐标)
         """
         return self._executor._monitor_icon_state(
-            region, normal_template, changed_template,
-            interval_ms, on_changed, sound, timeout,
+            region,
+            normal_template,
+            changed_template,
+            interval_ms,
+            on_changed,
+            sound,
+            timeout,
+            color_mode=color_mode,
+            histogram_threshold=histogram_threshold,
         )
 
     # ========== 脚本控制 API ==========
-    
+
     def run_script(self, name: str) -> bool:
         """运行子脚本"""
         return self._executor._run_sub_script(name)
-    
+
     def delay(self, ms: int):
         """延迟"""
         self._executor.input_controller.delay(ms)
-    
+
     def log(self, message: str, level: str = "INFO"):
         """日志"""
         self._executor.log(message, level)
-    
+
     # ========== 循环控制 API ==========
-    
-    def loop_while(self, condition: Callable[[], bool], body: Callable[[], Any], 
-                   max_iterations: int = 100, interval: int = 1000):
+
+    def loop_while(
+        self,
+        condition: Callable[[], bool],
+        body: Callable[[], Any],
+        max_iterations: int = 100,
+        interval: int = 1000,
+    ):
         """
         条件循环 - 当条件为 true 时持续执行
-        
+
         Args:
             condition: 条件函数，返回 true 继续循环
             body: 循环体函数
@@ -145,13 +164,13 @@ class ScriptAPI:
             self.delay(interval)
         else:
             self.log(f"循环结束：达到最大次数 {max_iterations}", "WARNING")
-        
+
         self.loop_count = 0
-    
+
     def loop_times(self, count: int, body: Callable[[], Any], delay_ms: int = 0):
         """
         固定次数循环
-        
+
         Args:
             count: 循环次数
             body: 循环体函数
@@ -163,14 +182,19 @@ class ScriptAPI:
             body()
             if delay_ms > 0:
                 self.delay(delay_ms)
-        
+
         self.loop_count = 0
-    
-    def loop_until(self, condition: Callable[[], bool], body: Callable[[], Any],
-                   timeout: int = 30000, interval: int = 1000):
+
+    def loop_until(
+        self,
+        condition: Callable[[], bool],
+        body: Callable[[], Any],
+        timeout: int = 30000,
+        interval: int = 1000,
+    ):
         """
         直到条件满足才停止的循环
-        
+
         Args:
             condition: 停止条件函数，返回 true 停止循环
             body: 循环体函数
@@ -179,7 +203,7 @@ class ScriptAPI:
         """
         start_time = time.time()
         iterations = 0
-        
+
         while True:
             self.loop_count = iterations + 1
             if condition():
@@ -191,13 +215,13 @@ class ScriptAPI:
             body()
             iterations += 1
             self.delay(interval)
-        
+
         self.loop_count = 0
 
 
 class PythonRunner:
     """Python 脚本加载器和执行器"""
-    
+
     def __init__(self, script_executor):
         """
         Args:
@@ -205,61 +229,61 @@ class PythonRunner:
         """
         self._executor = script_executor
         self._api = ScriptAPI(script_executor)
-    
+
     def load_script(self, script_path: str) -> Optional[types.ModuleType]:
         """
         加载 Python 脚本为模块
-        
+
         Args:
             script_path: 脚本路径
-        
+
         Returns:
             加载的模块或 None
         """
         import importlib.util
-        
+
         script_path = Path(script_path)
         if not script_path.exists():
             self._executor.log(f"Python 脚本不存在：{script_path}", "ERROR")
             return None
-        
+
         try:
             # 动态加载模块
             spec = importlib.util.spec_from_file_location(
-                "script_module", 
-                str(script_path)
+                "script_module", str(script_path)
             )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            
+
             self._executor.log(f"Python 脚本加载成功：{script_path}", "DEBUG")
             return module
-            
+
         except Exception as e:
             self._executor.log(f"Python 脚本加载失败：{e}", "ERROR")
             return None
-    
+
     def execute(self, module: types.ModuleType) -> bool:
         """
         执行 Python 脚本的 main 函数
-        
+
         Args:
             module: 已加载的模块
-        
+
         Returns:
             执行是否成功
         """
-        if not hasattr(module, 'main'):
+        if not hasattr(module, "main"):
             self._executor.log("错误：脚本缺少 main() 函数", "ERROR")
             return False
-        
+
         try:
             # 调用 main(executor)
             result = module.main(self._api)
             return result is not False
-            
+
         except Exception as e:
             self._executor.log(f"Python 脚本执行错误：{e}", "ERROR")
             import traceback
+
             self._executor.log(f"堆栈：{traceback.format_exc()}", "DEBUG")
             return False

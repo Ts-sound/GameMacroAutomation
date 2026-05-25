@@ -1,12 +1,13 @@
 """图像识别模块 - 使用 pyautogui 进行模板匹配"""
+
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
+import cv2
+import numpy as np
 import pyautogui
 from PIL import Image
-
-from src.core.screen import ScreenManager
 
 
 @dataclass
@@ -99,7 +100,7 @@ class ImageMatcher:
 
         # 直接使用截图的尺寸，而不是通过 get_screen_by_id
         screen_w, screen_h = screen.size
-        
+
         x_start, x_end = region["x"]
         y_start, y_end = region["y"]
 
@@ -108,7 +109,9 @@ class ImageMatcher:
         abs_w = round((x_end - x_start) * screen_w)
         abs_h = round((y_end - y_start) * screen_h)
 
-        print(f"DEBUG find_in_region: screen={screen.size}, region={region}, abs=({abs_x},{abs_y},{abs_w},{abs_h})")
+        print(
+            f"DEBUG find_in_region: screen={screen.size}, region={region}, abs=({abs_x},{abs_y},{abs_w},{abs_h})"
+        )
 
         matches: List[MatchResult] = []
 
@@ -123,8 +126,10 @@ class ImageMatcher:
                     abs_x <= center_x < abs_x + abs_w
                     and abs_y <= center_y < abs_y + abs_h
                 )
-                
-                print(f"DEBUG: 找到点 ({center_x}, {center_y}), 区域 ({abs_x},{abs_y})-({abs_x+abs_w},{abs_y+abs_h}), in_region={in_region}")
+
+                print(
+                    f"DEBUG: 找到点 ({center_x}, {center_y}), 区域 ({abs_x},{abs_y})-({abs_x+abs_w},{abs_y+abs_h}), in_region={in_region}"
+                )
 
                 if in_region:
                     matches.append(
@@ -164,3 +169,42 @@ class ImageMatcher:
             return location
         except Exception:
             return None
+
+    @staticmethod
+    def compute_histogram(image: Image.Image, bins: int = 32) -> Optional[np.ndarray]:
+        """计算 BGR 三通道直方图并归一化
+
+        Args:
+            image: PIL Image
+            bins: 每通道直方图 bin 数
+
+        Returns:
+            归一化直方图数组 (3*bins,) 或 None
+        """
+        try:
+            arr = np.array(image.convert("RGB"))
+            bgr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+            hist = np.zeros((3, bins), dtype=np.float32)
+            for ch in range(3):
+                h = cv2.calcHist([bgr], [ch], None, [bins], [0, 256])
+                cv2.normalize(h, h)
+                hist[ch] = h.flatten()
+            return hist.flatten()
+        except Exception:
+            return None
+
+    def compare_histogram(self, img1: Image.Image, img2: Image.Image) -> float:
+        """比较两张图片直方图相似度
+
+        Args:
+            img1: PIL Image
+            img2: PIL Image
+
+        Returns:
+            0-1 相似度，1 表示完全相同
+        """
+        h1 = self.compute_histogram(img1)
+        h2 = self.compute_histogram(img2)
+        if h1 is None or h2 is None:
+            raise ValueError("Failed to compute histogram for one or both images")
+        return float(cv2.compareHist(h1, h2, cv2.HISTCMP_CORREL))
