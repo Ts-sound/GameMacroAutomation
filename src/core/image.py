@@ -189,10 +189,10 @@ class ImageMatcher:
         except Exception:
             return None
 
-    def find_in_region(
+def find_in_region(
         self,
         screen: Image.Image,
-        template: Image.Image,
+        template_path: str,
         region: dict,
         confidence: Optional[float] = None,
     ) -> List[MatchResult]:
@@ -201,7 +201,7 @@ class ImageMatcher:
 
         Args:
             screen: 完整屏幕截图 (PIL Image)
-            template: 模板图片
+            template_path: 模板图片路径
             region: 百分比区域 {"x": (x1, x2), "y": (y1, y2)}
             confidence: 置信度阈值
 
@@ -217,17 +217,16 @@ class ImageMatcher:
         matches: List[MatchResult] = []
 
         try:
-            # 全屏检测，然后过滤是否在区域内
-            locations = pyautogui.locateAll(screen, template, confidence=confidence)
-
-            for location in locations:
+            # 使用 locateOnScreen 直接在整个屏幕上查找（需要模板路径）
+            location = pyautogui.locateOnScreen(template_path, confidence=confidence)
+            
+            if location:
                 x, y, w, h = location
                 center_x, center_y = x + w // 2, y + h // 2
                 
                 # 检查是否在指定区域内
                 in_region = (abs_x <= center_x < abs_x + abs_w and 
                     abs_y <= center_y < abs_y + abs_h)
-                print(f"DEBUG: 找到匹配 at ({center_x}, {center_y}), 区域 ({abs_x},{abs_y})-({abs_x+abs_w},{abs_y+abs_h}), 在区域内: {in_region}")
                 
                 if in_region:
                     matches.append(

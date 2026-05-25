@@ -287,13 +287,6 @@ class ScriptExecutor:
             self.log(f"变化态模板不存在：{changed_template}", "ERROR")
             return False, None
 
-        normal_img = self.image_matcher.load_template(str(normal_path))
-        changed_img = self.image_matcher.load_template(str(changed_path))
-
-        if normal_img is None or changed_img is None:
-            self.log("模板加载失败", "ERROR")
-            return False, None
-
         self.log(f"开始监测图标状态：normal={normal_template}, changed={changed_template}, interval={interval_ms}ms", "INFO")
 
         last_state: Optional[str] = None
@@ -314,18 +307,15 @@ class ScriptExecutor:
             changed_path = self._resolve_image_path(changed_template, self.current_script_dir)
             self.log(f"[监测] 模板路径 - normal: {normal_path}, changed: {changed_path}", "DEBUG")
             
-            # 加载模板
-            if normal_img is None:
-                normal_img = self.image_matcher.load_template(str(normal_path))
-            if changed_img is None:
-                changed_img = self.image_matcher.load_template(str(changed_path))
-            self.log(f"[监测] 模板加载 - normal: {normal_img is not None}, changed: {changed_img is not None}", "DEBUG")
+            if not normal_path or not changed_path:
+                self.log(f"[监测] 模板路径解析失败", "ERROR")
+                return False, None
 
             normal_matches = self.image_matcher.find_in_region(
-                screenshot, normal_img, region, confidence=0.8,
+                screenshot, str(normal_path), region, confidence=0.8,
             )
             changed_matches = self.image_matcher.find_in_region(
-                screenshot, changed_img, region, confidence=0.8,
+                screenshot, str(changed_path), region, confidence=0.8,
             )
 
             self.log(f"[监测] 匹配结果 - normal: {len(normal_matches)}, changed: {len(changed_matches)}", "DEBUG")
