@@ -1,0 +1,13 @@
+meta:
+  name: "图标状态变化监测示例 - color 模式"
+  version: "1.0"
+  description: "使用去背景模板+alpha通道提取颜色，对比初始颜色变化"
+
+config:
+  log_level: "DEBUG"
+
+assets:
+  images:
+    icon_before_nobg: "images/icon_before_nobg.png"
+
+python_script: "color_mode.py"
