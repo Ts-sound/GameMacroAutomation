@@ -214,27 +214,30 @@ class ImageMatcher:
         screen_manager = ScreenManager()
         abs_x, abs_y, abs_w, abs_h = screen_manager.region_to_absolute(region)
 
-        cropped = screen.crop((abs_x, abs_y, abs_x + abs_w, abs_y + abs_h))
-
         matches: List[MatchResult] = []
 
         try:
-            locations = pyautogui.locateAll(cropped, template, confidence=confidence)
+            # 全屏检测，然后过滤是否在区域内
+            locations = pyautogui.locateAll(screen, template, confidence=confidence)
 
             for location in locations:
                 x, y, w, h = location
                 center_x, center_y = x + w // 2, y + h // 2
-                matches.append(
-                    MatchResult(
-                        x=center_x,
-                        y=center_y,
-                        width=w,
-                        height=h,
-                        confidence=confidence,
-                        screen_x=center_x + abs_x,
-                        screen_y=center_y + abs_y,
+                
+                # 检查是否在指定区域内
+                if (abs_x <= center_x < abs_x + abs_w and 
+                    abs_y <= center_y < abs_y + abs_h):
+                    matches.append(
+                        MatchResult(
+                            x=center_x - abs_x,
+                            y=center_y - abs_y,
+                            width=w,
+                            height=h,
+                            confidence=confidence,
+                            screen_x=center_x,
+                            screen_y=center_y,
+                        )
                     )
-                )
         except Exception:
             pass
 
