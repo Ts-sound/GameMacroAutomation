@@ -42,6 +42,25 @@ python -m src.main run docs/examples/02_battle_example/battle_loop.yaml
 
 ---
 
+### 03_icon_changed - 图标状态变化监测
+
+**难度**: 入门 ⭐
+
+**功能**:
+- 使用 `monitor_icon_state()` 监测图标状态变化
+- 百分比格式区域指定
+- 状态变化后发出系统提示音
+- 支持回调函数
+
+**运行**:
+```bash
+python -m src.main run docs/examples/03_icon_changed/main.yaml
+```
+
+**说明**: 详见 [03_icon_changed/README.md](03_icon_changed/README.md)
+
+---
+
 ## 运行所有示例
 
 ```bash
@@ -50,6 +69,9 @@ python -m src.main run docs/examples/01_loop_demo/main.yaml
 
 # 示例 2: 战斗流程
 python -m src.main run docs/examples/02_battle_example/battle_loop.yaml
+
+# 示例 3: 图标状态变化监测
+python -m src.main run docs/examples/03_icon_changed/main.yaml
 ```
 
 ## 注意事项

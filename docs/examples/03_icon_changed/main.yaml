@@ -1,0 +1,15 @@
+meta:
+  name: "图标状态变化监测示例"
+  version: "1.0"
+  description: "监测图标状态变化，变化后发出提示音"
+
+config:
+  window_title: "Notepad++"
+  log_level: "INFO"
+
+assets:
+  images:
+    icon_before: "images/icon_before.png"
+    icon_after: "images/icon_after.png"
+
+python_script: "main.py"
