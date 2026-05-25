@@ -406,7 +406,7 @@ class ScriptExecutor:
                     # 计算颜色差异
                     from src.executor.monitor_color import ColorMonitorStrategy
                     diff = ColorMonitorStrategy.compute_color_diff(initial_color, avg_color)
-                    self.log(f"[监测-color] 颜色差异: {diff:.4f} (阈值={color_diff_threshold})", "INFO")
+                    self.log(f"[监测-color] 当前颜色: {avg_color}, 初始颜色: {initial_color}, 差异: {diff:.4f} (阈值={color_diff_threshold})", "INFO")
                     if diff > color_diff_threshold:
                         self.log("[监测-color] 颜色变化超过阈值，状态变为 changed！", "WARNING")
                         current_state = "changed"
