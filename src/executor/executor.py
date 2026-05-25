@@ -327,7 +327,8 @@ class ScriptExecutor:
             else:
                 self.log(f"变化态模板不存在：{tpl}", "WARNING")
 
-        if not changed_paths:
+        # color 模式不需要 changed_template
+        if not changed_paths and color_mode != "color":
             self.log("所有变化态模板均不存在", "ERROR")
             return False, None
 
