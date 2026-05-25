@@ -139,14 +139,24 @@ class ScriptExecutor:
     
     def _execute_python_script(self, python_script: str) -> bool:
         """执行 Python 脚本"""
+        # 优先从当前脚本目录查找，其次从 scripts_dir 查找
+        if self.current_script_dir:
+            script_path = self.current_script_dir / python_script
+            if script_path.exists():
+                return self._run_python_script_file(script_path)
+        
+        # 回退到 scripts_dir
         script_path = self.scripts_dir / python_script
         if not script_path.exists():
             self.log(f"Python 脚本不存在：{python_script}", "ERROR")
             return False
         
+        return self._run_python_script_file(script_path)
+    
+    def _run_python_script_file(self, script_path: Path) -> bool:
+        """执行 Python 脚本文件"""
         self.log(f"执行 Python 脚本：{script_path}")
         try:
-            # 加载并执行
             module = self.python_runner.load_script(str(script_path))
             if module is None:
                 return False
