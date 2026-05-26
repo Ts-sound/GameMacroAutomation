@@ -1,6 +1,6 @@
 # Executor 模块设计
 
-## Overview
+## 概述
 
 **职责：** 执行 Python 脚本，提供图像识别、输入控制、循环控制等 API
 - 加载并执行 YAML + Python 混合脚本
@@ -9,7 +9,7 @@
 
 **非职责：** 录制功能、脚本验证
 
-## Architecture
+## 架构
 
 ```mermaid
 graph TD
@@ -56,7 +56,7 @@ graph TD
     class A1,A2,A3,A4,A5,A6,A7 api
 ```
 
-## Interfaces
+## 接口
 
 | Class | Public Methods | Description |
 |-------|---------------|-------------|
@@ -64,7 +64,7 @@ graph TD
 | `PythonRunner` | load_script, execute | Python 脚本加载执行 |
 | `ScriptAPI` | click_image, wait_image, loop_while, etc. | 脚本 API 封装 |
 
-## Key Sequences
+## 关键流程
 
 ### Python 脚本执行流程
 
@@ -128,7 +128,7 @@ sequenceDiagram
     end
 ```
 
-## Error Handling
+## 错误处理
 
 | Strategy | Behavior |
 |----------|----------|
@@ -143,7 +143,7 @@ config:
   default_timeout: 5000
 ```
 
-## Testing Strategy
+## 测试策略
 
 | Test Type | Coverage |
 |-----------|----------|
@@ -316,7 +316,7 @@ def main(executor):
 | color_diff_threshold | 颜色差异阈值，0-1（默认 0.15 表示 15% 差异） |
 | changed_template | 变化后图标，支持 `str` 或 `List[str]`，color 模式不需要 |
 
-## Future Improvements
+## 未来改进
 
 - [ ] Add async execution support
 - [ ] Support cancellation during execution

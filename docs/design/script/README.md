@@ -1,6 +1,6 @@
 # Script 模块设计
 
-## Overview
+## 概述
 
 **职责：** YAML 脚本的验证和管理
 - Schema 定义
@@ -10,7 +10,7 @@
 
 **非职责：** 脚本执行、录制功能
 
-## Architecture
+## 架构
 
 ```mermaid
 graph TD
@@ -46,7 +46,7 @@ graph TD
     class M1,M2 manager
 ```
 
-## Interfaces
+## 接口
 
 | Class | Public Methods | Description |
 |-------|---------------|-------------|
@@ -54,7 +54,7 @@ graph TD
 | `ScriptValidator` | validate_script_file, show_dependency_tree | 脚本验证器 |
 | `ConfigManager` | load_script, load_script_config | 配置加载器 |
 
-## Validation Rules
+## 验证规则
 
 | Check | Description |
 |-------|-------------|
@@ -65,7 +65,7 @@ graph TD
 | scripts.* | 子脚本引用必须存在 |
 | assets.images.* | 图片资源必须存在 |
 
-## Dependencies Tree
+## 依赖树
 
 ```mermaid
 graph TD
@@ -87,7 +87,7 @@ graph TD
     class E,F,G,H,I,J leaf
 ```
 
-## YAML Schema
+## YAML 模式
 
 ```yaml
 meta:
@@ -120,7 +120,7 @@ python_script: "path/to/script.py"  # Optional
 actions: []                           # Optional
 ```
 
-## Error Handling
+## 错误处理
 
 | Error Type | Message |
 |------------|---------|
@@ -129,14 +129,14 @@ actions: []                           # Optional
 | Missing meta.name | `缺少必需的 meta.name 字段` |
 | Resource not found | `资源不存在：{type} [{key}]` |
 
-## Testing Strategy
+## 测试策略
 
 | Test Type | Coverage |
 |-----------|----------|
 | Unit | validate_script_file, show_dependency_tree |
 | Integration | validate with real YAML files |
 
-## Future Improvements
+## 未来改进
 
 - [ ] Add schema validation with pydantic
 - [ ] Support script versioning

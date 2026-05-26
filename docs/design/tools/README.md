@@ -1,6 +1,6 @@
 # Tools 模块设计
 
-## Overview
+## 概述
 
 **职责：** 辅助工具集
 - 检测区域截图
@@ -8,7 +8,7 @@
 
 **非职责：** 脚本执行、录制、验证
 
-## Architecture
+## 架构
 
 ```mermaid
 graph TD
@@ -39,13 +39,13 @@ graph TD
     class SM1,SM2 screen
 ```
 
-## Interfaces
+## 接口
 
 | Class | Public Methods | Description |
 |-------|---------------|-------------|
 | `ZoneCaptor` | capture_full_screen, capture_window, capture_region, interactive_capture | 截图工具 |
 
-## Key Sequences
+## 关键流程
 
 ### 区域截图流程
 
@@ -64,7 +64,7 @@ sequenceDiagram
     ZC-->>USER: output_path
 ```
 
-## Screenshot Methods
+## 截图方法
 
 | Method | Use Case |
 |--------|----------|
@@ -73,7 +73,7 @@ sequenceDiagram
 | `capture_region` | 指定区域（相对窗口或全屏坐标） |
 | `interactive_capture` | 显示交互式截图说明 |
 
-## CLI Usage
+## CLI 用法
 
 ```bash
 # 全屏截图
@@ -86,7 +86,7 @@ python -m src.main capture-zone --output assets/detection/window.png -w "Game Wi
 python -m src.main capture-zone --output assets/detection/xxx.png
 ```
 
-## Screenshot Size Guide
+## 截图尺寸指南
 
 | Usage | Recommended Size |
 |-------|-----------------|
@@ -94,7 +94,7 @@ python -m src.main capture-zone --output assets/detection/xxx.png
 | HP Bar/Status | 200x30 - 300x50 |
 | Popup/Dialog | 200x200 - 400x300 |
 
-## Error Handling
+## 错误处理
 
 | Error Type | Handling |
 |------------|----------|
@@ -102,14 +102,14 @@ python -m src.main capture-zone --output assets/detection/xxx.png
 | Screenshot failed | Raise exception with details |
 | Output path invalid | Show path validation error |
 
-## Testing Strategy
+## 测试策略
 
 | Test Type | Coverage |
 |-----------|----------|
 | Unit | capture_region with mocked PIL |
 | Integration | Real screenshot operations |
 
-## Future Improvements
+## 未来改进
 
 - [ ] Add cross-platform screenshot support
 - [ ] Add interactive region selection GUI

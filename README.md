@@ -159,6 +159,40 @@ executor.delay(1000)                  # 延迟 1 秒
 executor.log("战斗开始", "INFO")       # 日志记录
 ```
 
+### 图标状态监测
+
+```python
+# 监听图标状态变化，检测到变化时执行回调并播放声音
+changed, coords = executor.monitor_icon_state(
+    region={"x": (0.4, 0.6), "y": (0.1, 0.2)},  # 检测区域
+    normal_template="icon_normal",              # 正常状态模板
+    color_mode="color",                         # 颜色对比模式
+    color_diff_threshold=0.15,                  # 颜色差异阈值
+    interval_ms=500,                            # 检测间隔
+    timeout=60000,                              # 超时时间
+    on_changed=lambda state: executor.log(f"图标状态变化: {state}"),
+    sound={"type": "system"}                    # 变化时播放声音
+)
+```
+
+**color_mode 模式说明：**
+
+| 模式 | 说明 | 适用场景 |
+|------|------|----------|
+| `template` | 传统模板匹配 | 简单场景 |
+| `histogram` | 颜色直方图对比 | 颜色变化明显 |
+| `color` | Alpha 通道提取颜色（推荐） | 同形异色图标 |
+
+### 声音提醒
+
+```python
+# 播放系统提示音
+executor.play_sound({"type": "system"})
+
+# 播放音频文件
+executor.play_sound({"type": "file", "file": "alert.wav"})
+```
+
 ## 项目结构
 
 ```

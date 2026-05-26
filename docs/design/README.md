@@ -1,11 +1,11 @@
-# Design Documents
+# 设计文档
 
-## Overview
+## 概述
 
 **项目定位：** 基于 Python 的 Windows 游戏宏自动化系统
 **核心价值：** 录制鼠标键盘操作 → 生成脚本 → 通过图像识别自动执行
 
-## Architecture
+## 架构
 
 ```mermaid
 graph TD
@@ -67,7 +67,7 @@ graph TD
     class SM,IC,IM,CM,LOG,SA,DD,SN core
 ```
 
-## Modules
+## 模块
 
 | Module | Responsibility | Documentation |
 |--------|---------------|---------------|
@@ -79,7 +79,7 @@ graph TD
 | script | YAML validation and management | [script/](script/README.md) |
 | tools | Zone capture utility | [tools/](tools/README.md) |
 
-## Data Model
+## 数据模型
 
 ```mermaid
 classDiagram
@@ -117,7 +117,7 @@ classDiagram
     MacroScript --> ScriptAssets
 ```
 
-## Technical Decisions
+## 技术决策
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
@@ -127,9 +127,9 @@ classDiagram
 | Window management | PyGetWindow | Simple window lookup |
 | Resolution adaptation | Auto-scale factor | Support multiple resolutions |
 
-## API Design
+## API 设计
 
-### Script API (executor provides)
+### 脚本 API（executor 提供）
 
 | Method | Parameters | Returns | Description |
 |--------|------------|---------|-------------|
@@ -145,9 +145,9 @@ classDiagram
 | `detect_in_region` | region, template_name, confidence | List[MatchResult] | Detect templates in percentage region |
 | `monitor_icon_state` | region, normal, changed, interval, on_changed | bool | Monitor state change with callback |
 
-### Region Detection
+### 区域检测
 
-#### Region Format (Percentage-based)
+#### 区域格式（百分比）
 
 ```python
 region = {
@@ -156,13 +156,13 @@ region = {
 }
 ```
 
-- **Coordinate system**: Screen absolute coordinates
-- **Reference**: Current screen (primary) or specified by screen_id
-- **Left (x=0)** to **Right (x=1)**, **Top (y=0)** to **Bottom (y=1)**
+- **坐标系**：屏幕绝对坐标
+- **参考**：当前屏幕（主屏）或 screen_id 指定的屏幕
+- **左 (x=0)** 到 **右 (x=1)**，**上 (y=0)** 到 **下 (y=1)**
 
 #### detect_in_region
 
-Detect all occurrences of a template within a percentage-defined screen region.
+检测模板在指定百分比区域内的所有匹配。
 
 ```python
 results = executor.detect_in_region(
@@ -174,7 +174,7 @@ results = executor.detect_in_region(
 
 #### monitor_icon_state
 
-Continuously monitor an icon's state change. Play sound and trigger callback when state changes.
+持续监测图标状态变化，状态变化时播放声音并触发回调。
 
 ```python
 # Monitor state change with callback
@@ -196,7 +196,7 @@ changed, coords = executor.monitor_icon_state(
 # (False, None) - timeout or no change detected
 ```
 
-**Detection cycle returns:**
+# 监控状态返回：
 - `"none"`: No icon detected
 - `"normal"`: Original icon detected
 - `"changed"`: Icon has changed
@@ -215,7 +215,7 @@ class MatchResult:
     screen_y: int   # Absolute screen coordinate Y
 ```
 
-### Terminology
+### 术语表
 
 | Term | Format | Example |
 |------|--------|---------|
@@ -224,7 +224,7 @@ class MatchResult:
 | Sound config | `{"type": "system" \| "file", "file": str}` | `{"type": "file", "file": "alert.wav"}` |
 | State | String "normal" \| "changed" | `"normal"` |
 
-## Script Architecture
+## 脚本架构
 
 ```mermaid
 graph LR
@@ -263,27 +263,27 @@ assets:
 python_script: "battle.py"
 ```
 
-## Security Considerations
+## 安全考虑
 
-- **Local execution only** - All automation runs locally, no remote access
-- **Window isolation** - Operations scoped to specific game window
-- **No external network calls** - Pure local desktop automation
-- **Credential handling** - No credentials stored; game credentials entered by user directly
-- **Input simulation safety** - Mouse/keyboard simulation limited to recorded actions
+- **本地执行** - 所有自动化都在本地运行，无远程访问
+- **窗口隔离** - 操作限定在特定游戏窗口
+- **无外部网络调用** - 纯本地桌面自动化
+- **凭证处理** - 不存储凭证；游戏凭证由用户直接输入
+- **输入模拟安全** - 鼠标/键盘模拟仅限于录制的操作
 
-## Deployment
+## 部署
 
 ```mermaid
 graph LR
-    subgraph User["User Environment"]
-        USER[User]
-        GAME[Game Window]
+    subgraph 用户环境["用户环境"]
+        USER[用户]
+        GAME[游戏窗口]
     end
 
-    subgraph Application["Game Macro Automation"]
-        CLI[CLI Interface]
-        EXE[Executor]
-        CORE[Core Modules]
+    subgraph 应用["游戏宏自动化"]
+        CLI[CLI 接口]
+        EXE[执行器]
+        CORE[核心模块]
     end
 
     USER --> CLI
@@ -299,21 +299,21 @@ graph LR
     class GAME target
 ```
 
-### Installation
+### 安装
 
 ```bash
-# Clone and install
+# 克隆并安装
 git clone <repo>
 cd GameMacroAutomation
 pip install -r requirements.txt
 
-# Run CLI
+# 运行 CLI
 python -m src.main --help
 ```
 
-### Configuration
+### 配置
 
-- Script directory: `scripts/`
-- Assets directory: `assets/`
-- Logs directory: `logs/`
-- Config: YAML files in scripts directory
+- 脚本目录：`scripts/`
+- 资源目录：`assets/`
+- 日志目录：`logs/`
+- 配置：YAML 文件位于 scripts 目录

@@ -1,6 +1,6 @@
 # Recorder 模块设计
 
-## Overview
+## 概述
 
 **职责：** 录制用户的鼠标键盘操作，生成 YAML 脚本和截图资源
 - 监听输入事件（鼠标点击、键盘按键）
@@ -9,7 +9,7 @@
 
 **非职责：** 脚本执行、图像识别
 
-## Architecture
+## 架构
 
 ```mermaid
 graph TD
@@ -49,14 +49,14 @@ graph TD
     class SM1,SM2 screen
 ```
 
-## Interfaces
+## 接口
 
 | Class | Public Methods | Description |
 |-------|---------------|-------------|
 | `ScriptRecorder` | record, start_recording, stop_recording, save_script | 录制器主模块 |
 | `InputRecorder` | start_listening, stop_listening, actions | 输入事件监听 |
 
-## Key Sequences
+## 关键流程
 
 ### 录制流程
 
@@ -113,7 +113,7 @@ sequenceDiagram
     REC-->>IR: screenshot saved
 ```
 
-## Error Handling
+## 错误处理
 
 | Error Type | Handling |
 |------------|----------|
@@ -121,7 +121,7 @@ sequenceDiagram
 | Screenshot failed | Fallback to screen coordinates |
 | YAML save failed | Raise exception with path |
 
-## Testing Strategy
+## 测试策略
 
 | Test Type | Coverage |
 |-----------|----------|
@@ -129,7 +129,7 @@ sequenceDiagram
 | Mock | ScreenManager, InputRecorder |
 | Integration | Full recording flow |
 
-## YAML Output Format
+## YAML 输出格式
 
 ```yaml
 meta:
@@ -155,7 +155,7 @@ actions:
     key: "a"
 ```
 
-## Future Improvements
+## 未来改进
 
 - [ ] Add pause/resume recording
 - [ ] Support editing actions after recording

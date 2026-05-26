@@ -1,6 +1,6 @@
 # Core 模块设计
 
-## Overview
+## 概述
 
 **职责：** 提供游戏宏自动化的底层能力
 - 窗口管理与截图
@@ -11,7 +11,7 @@
 
 **非职责：** 脚本执行逻辑、录制流程控制
 
-## Architecture
+## 架构
 
 ```mermaid
 graph TD
@@ -46,6 +46,11 @@ graph TD
         LOG2[save_report]
     end
 
+    subgraph SoundNotifier
+        SN1[play_system_sound]
+        SN2[play_file]
+    end
+
     GAME --> SM1
     SM1 --> SM2
     SM2 --> IM1
@@ -57,10 +62,10 @@ graph TD
 
     classDef module fill:#87CEEB
     classDef api fill:#90EE90
-    class SM1,SM2,SM3,IC1,IC2,IC3,IM1,IM2,CM1,CM2,LOG1,LOG2 api
+    class SM1,SM2,SM3,IC1,IC2,IC3,IM1,IM2,CM1,CM2,LOG1,LOG2,SN1,SN2 api
 ```
 
-## Interfaces
+## 接口
 
 | Class | Public Methods | Description |
 |-------|---------------|-------------|
@@ -70,8 +75,9 @@ graph TD
 | `ImageMatcher` | locate_center_on_screen, load_template | 图像识别 |
 | `ConfigManager` | load_script, save_script | YAML 配置管理 |
 | `MacroLogger` | info, error, start_execution, save_report | 日志系统 |
+| `SoundNotifier` | play, play_system_sound, play_file | 声音提醒 |
 
-## Key Sequences
+## 关键流程
 
 ### 执行脚本流程
 
@@ -114,7 +120,7 @@ sequenceDiagram
     REC-->>REC: YAML saved
 ```
 
-## Error Handling
+## 错误处理
 
 | Error Type | Handling |
 |------------|----------|
@@ -123,7 +129,7 @@ sequenceDiagram
 | Image not found | Log warning, return None |
 | YAML parse error | Raise `YAMLError` with details |
 
-## Testing Strategy
+## 测试策略
 
 | Test Type | Coverage |
 |-----------|----------|
@@ -131,7 +137,7 @@ sequenceDiagram
 | Mock | pyautogui, PIL.ImageGrab |
 | Integration | Screen + Image recognition |
 
-## Future Improvements
+## 未来改进
 
 - [ ] Add cross-platform screen capture (currently Windows only)
 - [ ] Support multiple monitor configurations
