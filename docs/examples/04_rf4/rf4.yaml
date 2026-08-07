@@ -12,6 +12,7 @@ config:
   esp32_port: 80
   tap_ms: 50          # 单击按键时长 ms
   hold_ms: 400        # 长按按键时长 ms
+  detect_interval_ms: 500  # 检测频率 ms
 
 assets:
   images:

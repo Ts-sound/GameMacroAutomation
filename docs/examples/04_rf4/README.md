@@ -1,14 +1,62 @@
 
 ## 需求
 
-## 脚本流程
+## 状态机
 
-1. 检测 01_ready.png ，Y -> 点击 `;`
-2. 检测 02_on_fish.png , Y -> 长按 `;`
-3. 检测 03_keep.png , Y -> 点击 `空格`
-4. 循环 -> 1
-5. 检测 04_move_in_bottom.png , Y -> 长按 `;`
-6. 循环 -> 1
+### 状态说明
+
+| 状态 | 含义 |
+|------|------|
+| `WAIT_READY` | 等待抛竿准备 |
+| `WAIT_BITE` | 抛竿后等待中鱼 |
+| `REELING_FISH` | 中鱼收线中（长按 `;`） |
+| `REELING_BOTTOM` | 沉底收线中（长按 `;`） |
+
+### 状态跳转表（检测频率 0.5s）
+
+| # | 当前状态 | 检测事件(0.5s) | 动作 | 目标状态 |
+|---|---------|---------------|------|---------|
+| T1 | WAIT_READY | `01_ready` 出现 | tap `;` | WAIT_BITE |
+| T2 | WAIT_BITE | `02_on_fish` 出现 | hold `;`（中鱼收线） | REELING_FISH |
+| T3 | WAIT_BITE | `04_move_in_bottom` 出现 | hold `;`（沉底收线） | REELING_BOTTOM |
+| T4 | REELING_FISH | `03_keep` 出现 | 停 hold + tap 空格 | WAIT_READY |
+| T5 | REELING_FISH | `04_move_in_bottom` 出现 | 停 hold（鱼挣脱） | WAIT_READY |
+| T6 | REELING_FISH | 超时（hold 按满无事件） | 停 hold | WAIT_READY |
+| T7 | REELING_BOTTOM | `02_on_fish` 出现 | 停 hold → 立即续 hold `;` | REELING_FISH |
+| T8 | REELING_BOTTOM | `01_ready` 出现 | 停 hold（收线完成） | WAIT_READY |
+| T9 | REELING_BOTTOM | 超时（hold 按满无事件） | 停 hold → 继续收线 | REELING_BOTTOM |
+
+### 状态图
+
+```mermaid
+stateDiagram-v2
+    [*] --> WAIT_READY
+    WAIT_READY: 等抛竿准备(检测01_ready)
+    WAIT_BITE: 等中鱼(检测02_on_fish/04)
+    REELING_FISH: 中鱼收线中(检测03_keep/04)
+    REELING_BOTTOM: 沉底收线中(检测01_ready/02_on_fish)
+
+    WAIT_READY --> WAIT_BITE: 01_ready / tap ;
+    WAIT_BITE --> REELING_FISH: 02_on_fish / hold ;
+    WAIT_BITE --> REELING_BOTTOM: 04_move_in_bottom / hold ;
+    REELING_FISH --> WAIT_READY: 03_keep / stop+space
+    REELING_FISH --> WAIT_READY: 04_move_in_bottom / stop
+    REELING_FISH --> WAIT_READY: 超时 / stop
+    REELING_BOTTOM --> REELING_FISH: 02_on_fish / 续 hold ;
+    REELING_BOTTOM --> WAIT_READY: 01_ready / stop
+    REELING_BOTTOM --> REELING_BOTTOM: 超时 / 继续收线
+```
+
+### 各状态检测图片集（0.5s 轮询）
+
+| 状态 | 检测图片 |
+|------|---------|
+| WAIT_READY | `01_ready` |
+| WAIT_BITE | `02_on_fish`、`04_move_in_bottom` |
+| REELING_FISH（长按中） | `03_keep`、`04_move_in_bottom` |
+| REELING_BOTTOM（长按中） | `01_ready`、`02_on_fish` |
+
+检测频率 0.5s（`config.detect_interval_ms: 500`，可配置）。长按中断轮询与主循环一致，均 0.5s。
 
 图片检测设置，指定区域位置（中心位置，可配置），区域大小为400x400(可配置)，grayscale=True ， 置信度
 
@@ -28,6 +76,17 @@ python -m src.main run docs/examples/04_rf4/rf4.yaml
 | `confidence` | 置信度 | `0.8` |
 
 每个区域名即模板名，对应 `images/<区域名>.png`。
+
+### 检测频率与长按参数（rf4.yaml config）
+
+| 字段 | 说明 | 默认 |
+|------|------|------|
+| `detect_interval_ms` | 检测频率 | `500` |
+| `hold_ms` | 长按时长（单次收线） | `400` |
+| `tap_ms` | 单击时长 | `50` |
+| `esp32_host` / `esp32_port` | ESP32 地址 | `192.168.137.11` / `80` |
+
+> `REELING_BOTTOM` 沉底收线在 `hold_ms` 按满后自动续按，直到 `01_ready` 出现（T9 自循环）。
 
 ## 键盘控制
 
@@ -50,6 +109,7 @@ python -m src.main run docs/examples/04_rf4/rf4.yaml
 |------|------|
 | `tap(key, press_ms=50)` | 单击（press -> sleep -> release） |
 | `hold(key, duration_ms)` | 长按（press -> sleep -> release） |
+| `hold_interruptible(key, duration_ms, interrupt_check, interval_ms)` | 可中断长按：按住期间周期调用 `interrupt_check()`，返回非空值（区域名）立即释放并返回该值；按满时长返回 None |
 | `combo(keys, press_ms=50)` | 组合键，如 `["ctrl", "s"]` |
 | `press(key)` / `release(key)` | 原始按下/释放 |
 | `release_all()` | 释放全部按键 |

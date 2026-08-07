@@ -1,39 +1,40 @@
 """RF4 钓鱼自动脚本 - 状态机实现
 
 状态:
-- WAIT_CAST: 等待抛竿，检测 01_ready -> 单击 ;   进入 WAIT_FISH
-- WAIT_FISH: 等待中鱼，检测 02_on_fish -> 长按 ; 进入 WAIT_KEEP
-- WAIT_KEEP: 等待收鱼，检测 03_keep   -> 单击 空格 回到 WAIT_CAST
-
-通用收线（沉底）: 任意状态检测 04_move_in_bottom -> 长按 ; 回到 WAIT_CAST
+- WAIT_READY:     等待抛竿，检测 01_ready        -> 单击 ;        进入 WAIT_BITE
+- WAIT_BITE:      等待中鱼，检测 02_on_fish       -> 长按 ;        进入 REELING_FISH
+                  检测 04_move_in_bottom          -> 长按 ;        进入 REELING_BOTTOM
+- REELING_FISH:   中鱼收线中，检测 03_keep        -> 停+单击 空格  回到 WAIT_READY
+                  检测 04_move_in_bottom          -> 停（鱼挣脱）  回到 WAIT_READY
+                  按满超时                        -> 停            回到 WAIT_READY
+- REELING_BOTTOM: 沉底收线中，检测 02_on_fish     -> 停+续长按 ;   进入 REELING_FISH
+                  检测 01_ready                   -> 停（收完）    回到 WAIT_READY
+                  按满超时                        -> 续长按（继续收）
 
 检测设置（yaml detection_zones）:
 - center: 区域中心位置（绝对像素，可配置）
 - size: 区域尺寸（可配置）
 - grayscale: 灰度匹配
 - confidence: 置信度
+
+检测频率 detect_interval_ms（默认 500ms）:
+- 主循环轮询与长按中断检查共用同一频率
 """
+
+import time
 
 from esp32_keyboard import DEFAULT_HOST, DEFAULT_PORT, Esp32Keyboard
 
 DEFAULT_TAP_MS = 50
 DEFAULT_HOLD_MS = 400
+DEFAULT_INTERVAL_MS = 500
 
 # 状态定义
-STATE_CAST = "WAIT_CAST"  # 等待抛竿
-STATE_FISH = "WAIT_FISH"  # 等待中鱼
-STATE_KEEP = "WAIT_KEEP"  # 等待收鱼
-STATE_INIT = STATE_CAST
-
-# 主状态转换: 状态 -> [(区域名, 动作, 按键, 目标状态)]
-TRANSITIONS = {
-    STATE_CAST: [("01_ready", "tap", ";", STATE_FISH)],
-    STATE_FISH: [("02_on_fish", "hold", ";", STATE_KEEP)],
-    STATE_KEEP: [("03_keep", "tap", "space", STATE_CAST)],
-}
-
-# 通用沉底收线: (区域名, 动作, 按键)
-BOTTOM_RECOVER = ("04_move_in_bottom", "hold", ";")
+STATE_READY = "WAIT_READY"  # 等待抛竿
+STATE_BITE = "WAIT_BITE"  # 等待中鱼
+STATE_REEL_FISH = "REELING_FISH"  # 中鱼收线中
+STATE_REEL_BOTTOM = "REELING_BOTTOM"  # 沉底收线中
+STATE_INIT = STATE_READY
 
 
 def _detect_zone(executor, zones, name):
@@ -50,23 +51,6 @@ def _detect_zone(executor, zones, name):
     )
 
 
-def _do_action(executor, kb, zones, action, key, tap_ms, hold_ms, interrupt_check=None):
-    """执行按键动作
-
-    hold 使用可中断长按：按住期间周期检查 interrupt_check()，
-    返回非空值（如区域名）立即释放。
-
-    Returns:
-        tap: False；hold: 中断触发值（区域名），按满时长返回 None
-    """
-    if action == "tap":
-        kb.tap(key, press_ms=tap_ms)
-        return False
-    return kb.hold_interruptible(
-        key, duration_ms=hold_ms, interrupt_check=interrupt_check
-    )
-
-
 def _interrupt_check(executor, zones, *names):
     """返回中断条件：返回首个命中的区域名，全部未命中返回 None"""
 
@@ -79,45 +63,62 @@ def _interrupt_check(executor, zones, *names):
     return check
 
 
-def step(executor, kb, state, zones, tap_ms, hold_ms):
-    """状态机单步执行，返回下一个状态
+def _hold(executor, kb, zones, key, hold_ms, interval_ms, *watch_names):
+    """可中断长按，返回触发区域名（按满返回 None）"""
+    return kb.hold_interruptible(
+        key,
+        duration_ms=hold_ms,
+        interrupt_check=_interrupt_check(executor, zones, *watch_names),
+        interval_ms=interval_ms,
+    )
 
-    优先级:
-    1. 沉底收线（04_move_in_bottom）任意状态生效
-    2. 当前状态的主转换
-    3. 未命中保持当前状态
 
-    长按期间图标变化:
-    - 长按收线时，若 02_on_fish（中鱼）出现立即松开 -> WAIT_FISH
-    - 长按收线时，若 03_keep（可收）出现立即松开 -> WAIT_KEEP
-    """
-    # 1. 通用沉底收线
-    name, action, key = BOTTOM_RECOVER
-    if _detect_zone(executor, zones, name):
-        executor.log(f"[{state}] 检测到 {name} -> 长按 {key}", "INFO")
-        fired = _do_action(
-            executor, kb, zones, action, key, tap_ms, hold_ms,
-            interrupt_check=_interrupt_check(executor, zones, "02_on_fish", "03_keep"),
+def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms):
+    """状态机单步执行，返回下一个状态"""
+    if state == STATE_READY:
+        if _detect_zone(executor, zones, "01_ready"):
+            executor.log(f"[{state}] 检测到 01_ready -> tap ;", "INFO")
+            kb.tap(";", press_ms=tap_ms)
+            return STATE_BITE
+        return STATE_READY
+
+    if state == STATE_BITE:
+        if _detect_zone(executor, zones, "02_on_fish"):
+            executor.log(f"[{state}] 检测到 02_on_fish -> hold ;", "INFO")
+            return STATE_REEL_FISH
+        if _detect_zone(executor, zones, "04_move_in_bottom"):
+            executor.log(f"[{state}] 检测到 04_move_in_bottom -> hold ;", "INFO")
+            return STATE_REEL_BOTTOM
+        return STATE_BITE
+
+    if state == STATE_REEL_FISH:
+        fired = _hold(
+            executor, kb, zones, ";", hold_ms, interval_ms,
+            "03_keep", "04_move_in_bottom",
+        )
+        if fired == "03_keep":
+            executor.log("[REELING_FISH] 03_keep 出现 -> 停 + tap 空格", "INFO")
+            kb.tap("space", press_ms=tap_ms)
+            return STATE_READY
+        if fired == "04_move_in_bottom":
+            executor.log("[REELING_FISH] 04 出现（鱼挣脱）-> 停", "INFO")
+            return STATE_READY
+        executor.log("[REELING_FISH] 按满超时 -> 停", "INFO")
+        return STATE_READY
+
+    if state == STATE_REEL_BOTTOM:
+        fired = _hold(
+            executor, kb, zones, ";", hold_ms, interval_ms, "01_ready", "02_on_fish"
         )
         if fired == "02_on_fish":
-            return STATE_FISH
-        if fired == "03_keep":
-            return STATE_KEEP
-        return STATE_CAST
+            executor.log("[REELING_BOTTOM] 02_on_fish 出现 -> 续 hold ;", "INFO")
+            return STATE_REEL_FISH
+        if fired == "01_ready":
+            executor.log("[REELING_BOTTOM] 01_ready 出现（收完）-> 停", "INFO")
+            return STATE_READY
+        executor.log("[REELING_BOTTOM] 按满超时 -> 继续收线", "INFO")
+        return STATE_REEL_BOTTOM
 
-    # 2. 主转换
-    for zone_name, action, key, next_state in TRANSITIONS[state]:
-        if _detect_zone(executor, zones, zone_name):
-            executor.log(f"[{state}] 检测到 {zone_name} -> {action} {key}", "INFO")
-            fired = _do_action(
-                executor, kb, zones, action, key, tap_ms, hold_ms,
-                interrupt_check=_interrupt_check(executor, zones, "03_keep"),
-            )
-            if fired == "03_keep":
-                return STATE_KEEP
-            return next_state
-
-    # 3. 未命中
     return state
 
 
@@ -129,17 +130,22 @@ def main(executor):
     port = int(cfg.get("esp32_port", DEFAULT_PORT))
     tap_ms = int(cfg.get("tap_ms", DEFAULT_TAP_MS))
     hold_ms = int(cfg.get("hold_ms", DEFAULT_HOLD_MS))
+    interval_ms = int(cfg.get("detect_interval_ms", DEFAULT_INTERVAL_MS))
 
     kb = Esp32Keyboard(host=host, port=port)
     try:
         kb.connect()
         executor.log(f"ESP32 已连接 {host}:{port}", "INFO")
-        executor.log(f"长按时长 {hold_ms}ms，单击时长 {tap_ms}ms", "INFO")
+        executor.log(
+            f"长按时长 {hold_ms}ms，单击时长 {tap_ms}ms，检测频率 {interval_ms}ms",
+            "INFO",
+        )
 
         state = STATE_INIT
         executor.log(f"初始状态: {state}", "INFO")
         while True:
-            state = step(executor, kb, state, zones, tap_ms, hold_ms)
+            state = step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms)
+            time.sleep(interval_ms / 1000.0)
     finally:
         # 兜底：确保无按键残留按住
         kb.release_all()
