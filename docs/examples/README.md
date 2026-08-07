@@ -61,6 +61,24 @@ python -m src.main run docs/examples/03_icon_changed/main.yaml
 
 ---
 
+### 04_rf4 - 钓鱼自动脚本（ESP32 BLE 键盘）
+
+**难度**: 进阶 ⭐⭐
+
+**功能**:
+- 图像检测：区域中心 + 尺寸（400x400）可配置，grayscale + 置信度
+- ESP32 BLE 键盘 TCP 控制（tap 单击 / hold 长按 / combo 组合键）
+- 状态机流程：抛竿 -> 中鱼 -> 收鱼 -> 沉底收线
+
+**运行**:
+```bash
+python -m src.main run docs/examples/04_rf4/rf4.yaml
+```
+
+**说明**: 详见 [04_rf4/README.md](04_rf4/README.md)
+
+---
+
 ## 运行所有示例
 
 ```bash
@@ -72,6 +90,9 @@ python -m src.main run docs/examples/02_battle_example/battle_loop.yaml
 
 # 示例 3: 图标状态变化监测
 python -m src.main run docs/examples/03_icon_changed/main.yaml
+
+# 示例 4: 钓鱼自动脚本（ESP32 键盘）
+python -m src.main run docs/examples/04_rf4/rf4.yaml
 ```
 
 ## 注意事项

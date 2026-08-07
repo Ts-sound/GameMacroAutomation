@@ -1,0 +1,50 @@
+# RF4 钓鱼自动脚本配置
+meta:
+  name: "RF4钓鱼自动脚本"
+  version: "1.0"
+  description: "图像检测驱动 ESP32 BLE 键盘，自动抛竿/收线/收鱼"
+  created_by: "manual"
+
+config:
+  window_title: "游戏窗口"
+  log_level: "INFO"
+  esp32_host: "192.168.137.11"
+  esp32_port: 80
+  tap_ms: 50          # 单击按键时长 ms
+  hold_ms: 400        # 长按按键时长 ms
+
+assets:
+  images:
+    ready: "images/01_ready.png"
+    on_fish: "images/02_on_fish.png"
+    keep: "images/03_keep.png"
+    move_in_bottom: "images/04_move_in_bottom.png"
+
+# 检测区域：中心位置(绝对像素) + 尺寸(可配置) + grayscale + 置信度
+detection_zones:
+  01_ready:
+    image: "images/01_ready.png"
+    center: [960, 540]
+    size: [400, 400]
+    confidence: 0.8
+    grayscale: true
+  02_on_fish:
+    image: "images/02_on_fish.png"
+    center: [960, 540]
+    size: [400, 400]
+    confidence: 0.8
+    grayscale: true
+  03_keep:
+    image: "images/03_keep.png"
+    center: [960, 540]
+    size: [400, 400]
+    confidence: 0.8
+    grayscale: true
+  04_move_in_bottom:
+    image: "images/04_move_in_bottom.png"
+    center: [960, 540]
+    size: [400, 400]
+    confidence: 0.8
+    grayscale: true
+
+python_script: "rf4.py"

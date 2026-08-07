@@ -1,5 +1,6 @@
 """Python 脚本 API 封装"""
 
+import sys
 import time
 import types
 from pathlib import Path
@@ -70,6 +71,44 @@ class ScriptAPI:
             匹配结果列表
         """
         return self._executor._detect_in_region(region, template_name, confidence)
+
+    def detect_in_center_region(
+        self,
+        center: tuple,
+        size: tuple,
+        template_name: str,
+        confidence: float = 0.8,
+        grayscale: bool = True,
+    ) -> bool:
+        """
+        在指定中心点 + 尺寸区域内检测模板
+
+        Args:
+            center: 区域中心点 (x, y) 绝对像素
+            size: 区域尺寸 (w, h) 绝对像素
+            template_name: 模板名称
+            confidence: 置信度
+            grayscale: 是否灰度匹配
+
+        Returns:
+            bool: 是否找到匹配
+        """
+        matches = self._executor._detect_in_center_region(
+            center, size, template_name, confidence, grayscale
+        )
+        return bool(matches)
+
+    def get_detection_zones(self) -> dict:
+        """获取当前脚本的检测区域配置（YAML detection_zones）"""
+        script = getattr(self._executor, "current_script", None)
+        return script.detection_zones if script else {}
+
+    def get_script_config(self) -> dict:
+        """获取当前脚本的 config 原始字典（YAML config 段）"""
+        script = getattr(self._executor, "current_script", None)
+        if script is None:
+            return {}
+        return script.raw_data.get("config", {}) or {}
 
     def monitor_icon_state(
         self,
@@ -250,6 +289,11 @@ class PythonRunner:
             return None
 
         try:
+            # 将脚本所在目录加入 sys.path，支持导入同目录模块
+            script_dir = str(script_path.parent)
+            if script_dir not in sys.path:
+                sys.path.insert(0, script_dir)
+
             # 动态加载模块
             spec = importlib.util.spec_from_file_location(
                 "script_module", str(script_path)

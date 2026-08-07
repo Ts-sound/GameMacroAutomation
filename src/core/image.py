@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -90,63 +90,134 @@ class ImageMatcher:
     def find_in_region(
         self,
         screen: Image.Image,
-        template_path: str,
+        template: Union[str, Path, Image.Image],
         region: dict,
         confidence: Optional[float] = None,
+        grayscale: bool = False,
     ) -> List[MatchResult]:
-        """在指定区域内查找模板"""
+        """在指定百分比区域内查找模板
+
+        Args:
+            screen: 屏幕截图 (PIL Image)
+            template: 模板图片（路径或 PIL Image）
+            region: 百分比区域 {"x": (x1, x2), "y": (y1, y2)}，范围 0-1
+            confidence: 置信度
+            grayscale: 是否灰度匹配
+
+        Returns:
+            匹配结果列表（绝对屏幕坐标在 screen_x/screen_y）
+        """
         if confidence is None:
             confidence = self.default_confidence
 
-        # 直接使用截图的尺寸，而不是通过 get_screen_by_id
         screen_w, screen_h = screen.size
-
-        x_start, x_end = region["x"]
-        y_start, y_end = region["y"]
-
-        abs_x = round(x_start * screen_w)
-        abs_y = round(y_start * screen_h)
-        abs_w = round((x_end - x_start) * screen_w)
-        abs_h = round((y_end - y_start) * screen_h)
-
-        print(
-            f"DEBUG find_in_region: screen={screen.size}, region={region}, abs=({abs_x},{abs_y},{abs_w},{abs_h})"
+        x1 = round(region["x"][0] * screen_w)
+        y1 = round(region["y"][0] * screen_h)
+        x2 = round(region["x"][1] * screen_w)
+        y2 = round(region["y"][1] * screen_h)
+        return self._match_in_region(
+            screen, template, x1, y1, x2, y2, confidence, grayscale
         )
 
-        matches: List[MatchResult] = []
+    def find_in_abs_region(
+        self,
+        screen: Image.Image,
+        template: Union[str, Path, Image.Image],
+        center: Tuple[int, int],
+        size: Tuple[int, int],
+        confidence: Optional[float] = None,
+        grayscale: bool = False,
+    ) -> List[MatchResult]:
+        """在指定中心点+尺寸区域内查找模板
 
-        try:
-            location = pyautogui.locateOnScreen(template_path, confidence=confidence)
+        Args:
+            screen: 屏幕截图 (PIL Image)
+            template: 模板图片（路径或 PIL Image）
+            center: 区域中心点 (x, y) 绝对像素
+            size: 区域尺寸 (w, h) 绝对像素
+            confidence: 置信度
+            grayscale: 是否灰度匹配
 
-            if location:
-                x, y, w, h = location
-                center_x, center_y = x + w // 2, y + h // 2
+        Returns:
+            匹配结果列表
+        """
+        if confidence is None:
+            confidence = self.default_confidence
 
-                in_region = (
-                    abs_x <= center_x < abs_x + abs_w
-                    and abs_y <= center_y < abs_y + abs_h
-                )
+        cx, cy = center
+        w, h = size
+        x1 = cx - w // 2
+        y1 = cy - h // 2
+        x2 = x1 + w
+        y2 = y1 + h
+        return self._match_in_region(
+            screen, template, x1, y1, x2, y2, confidence, grayscale
+        )
 
-                print(
-                    f"DEBUG: 找到点 ({center_x}, {center_y}), 区域 ({abs_x},{abs_y})-({abs_x+abs_w},{abs_y+abs_h}), in_region={in_region}"
-                )
+    def _match_in_region(
+        self,
+        screen: Image.Image,
+        template,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        confidence: float,
+        grayscale: bool,
+    ) -> List[MatchResult]:
+        """区域匹配核心 - cv2 模板匹配"""
+        tpl = self._load_template_image(template)
+        if tpl is None:
+            return []
 
-                if in_region:
-                    matches.append(
-                        MatchResult(
-                            x=center_x - abs_x,
-                            y=center_y - abs_y,
-                            width=w,
-                            height=h,
-                            confidence=confidence,
-                            screen_x=center_x,
-                            screen_y=center_y,
-                        )
-                    )
-        except Exception as e:
-            print(f"DEBUG: 检测异常: {e}")
+        screen_w, screen_h = screen.size
+        x1 = max(0, min(x1, screen_w))
+        y1 = max(0, min(y1, screen_h))
+        x2 = max(x1, min(x2, screen_w))
+        y2 = max(y1, min(y2, screen_h))
 
-        return matches
+        screen_rgb = np.asarray(screen.convert("RGB"))
+        tpl_rgb = np.asarray(tpl.convert("RGB"))
+        if grayscale:
+            screen_arr = cv2.cvtColor(screen_rgb, cv2.COLOR_RGB2GRAY)
+            tpl_arr = cv2.cvtColor(tpl_rgb, cv2.COLOR_RGB2GRAY)
+        else:
+            screen_arr = cv2.cvtColor(screen_rgb, cv2.COLOR_RGB2BGR)
+            tpl_arr = cv2.cvtColor(tpl_rgb, cv2.COLOR_RGB2BGR)
+
+        th, tw = tpl_arr.shape[:2]
+        crop_w = x2 - x1
+        crop_h = y2 - y1
+        if crop_w < tw or crop_h < th:
+            return []
+
+        crop = screen_arr[y1:y2, x1:x2]
+        result = cv2.matchTemplate(crop, tpl_arr, cv2.TM_CCOEFF_NORMED)
+        _, max_val, _, max_loc = cv2.minMaxLoc(result)
+        if max_val < confidence:
+            return []
+
+        m_x = x1 + max_loc[0]
+        m_y = y1 + max_loc[1]
+        center_x = m_x + tw // 2
+        center_y = m_y + th // 2
+        return [
+            MatchResult(
+                x=center_x - x1,
+                y=center_y - y1,
+                width=tw,
+                height=th,
+                confidence=confidence,
+                screen_x=center_x,
+                screen_y=center_y,
+            )
+        ]
+
+    def _load_template_image(self, template) -> Optional[Image.Image]:
+        """统一模板入参：路径字符串或 PIL Image"""
+        if isinstance(template, (str, Path)):
+            return self.load_template(str(template))
+        return template
 
     def locate_on_screen(
         self, template_path: str, confidence: float = 0.9

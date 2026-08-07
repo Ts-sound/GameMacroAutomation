@@ -50,6 +50,7 @@ class ScriptExecutor:
 
         self._logger: Optional[logging.Logger] = None
         self.current_script_dir: Optional[Path] = None
+        self.current_script: Optional[MacroScript] = None
 
     def setup_logging(self, log_level: str = "INFO", log_file: Optional[str] = None):
         """设置日志"""
@@ -263,8 +264,9 @@ class ScriptExecutor:
         region: dict,
         template_name: str,
         confidence: float = 0.8,
+        grayscale: bool = False,
     ) -> List[MatchResult]:
-        """区域检测 - 内部方法"""
+        """区域检测 - 内部方法（百分比区域）"""
         img_path = self._resolve_image_path(template_name, self.current_script_dir)
         if not img_path:
             self.log(f"图片不存在：{template_name}", "ERROR")
@@ -277,7 +279,33 @@ class ScriptExecutor:
 
         screenshot = ImageGrab.grab()
         results = self.image_matcher.find_in_region(
-            screenshot, template, region, confidence
+            screenshot, template, region, confidence, grayscale
+        )
+        self.log(f"区域检测 {template_name}：找到 {len(results)} 个匹配", "DEBUG")
+        return results
+
+    def _detect_in_center_region(
+        self,
+        center: Tuple[int, int],
+        size: Tuple[int, int],
+        template_name: str,
+        confidence: float = 0.8,
+        grayscale: bool = True,
+    ) -> List[MatchResult]:
+        """区域检测 - 内部方法（中心点 + 尺寸，绝对像素）"""
+        img_path = self._resolve_image_path(template_name, self.current_script_dir)
+        if not img_path:
+            self.log(f"图片不存在：{template_name}", "ERROR")
+            return []
+
+        template = self.image_matcher.load_template(str(img_path))
+        if template is None:
+            self.log(f"模板加载失败：{template_name}", "ERROR")
+            return []
+
+        screenshot = ImageGrab.grab()
+        results = self.image_matcher.find_in_abs_region(
+            screenshot, template, center, size, confidence, grayscale
         )
         self.log(f"区域检测 {template_name}：找到 {len(results)} 个匹配", "DEBUG")
         return results
@@ -478,6 +506,7 @@ class ScriptExecutor:
 
         # 设置当前脚本目录（用于查找 images 文件夹）
         self.current_script_dir = Path(yaml_path).parent
+        self.current_script = script
 
         # 初始化（全屏模式）
         self.setup()
