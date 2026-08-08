@@ -21,6 +21,7 @@ class MatchResult:
     confidence: float
     screen_x: Optional[int] = None
     screen_y: Optional[int] = None
+    match_score: Optional[float] = None
 
     @property
     def center(self) -> tuple[int, int]:
@@ -210,6 +211,7 @@ class ImageMatcher:
                 confidence=confidence,
                 screen_x=center_x,
                 screen_y=center_y,
+                match_score=float(max_val),
             )
         ]
 

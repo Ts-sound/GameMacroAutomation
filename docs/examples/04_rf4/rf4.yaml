@@ -8,11 +8,11 @@ meta:
 config:
   window_title: "游戏窗口"
   log_level: "INFO"
-  esp32_host: "192.168.137.11"
+  esp32_host: "192.168.137.138"
   esp32_port: 80
-  tap_ms: 50          # 单击按键时长 ms
-  hold_ms: 400        # 长按按键时长 ms
-  detect_interval_ms: 500  # 检测频率 ms
+  tap_ms: 50 # 单击按键时长 ms
+  hold_ms: 400 # 长按按键时长 ms
+  detect_interval_ms: 500 # 检测频率 ms
 
 assets:
   images:
@@ -25,27 +25,27 @@ assets:
 detection_zones:
   01_ready:
     image: "images/01_ready.png"
-    center: [960, 540]
+    center: [800, 1200]
     size: [400, 400]
-    confidence: 0.8
+    confidence: 0.5
     grayscale: true
   02_on_fish:
     image: "images/02_on_fish.png"
-    center: [960, 540]
+    center: [800, 1200]
     size: [400, 400]
-    confidence: 0.8
+    confidence: 0.5
     grayscale: true
   03_keep:
     image: "images/03_keep.png"
-    center: [960, 540]
-    size: [400, 400]
-    confidence: 0.8
+    center: [1200, 800]
+    size: [800, 800]
+    confidence: 0.5
     grayscale: true
   04_move_in_bottom:
     image: "images/04_move_in_bottom.png"
-    center: [960, 540]
+    center: [800, 1200]
     size: [400, 400]
-    confidence: 0.8
+    confidence: 0.5
     grayscale: true
 
 python_script: "rf4.py"

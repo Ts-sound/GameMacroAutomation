@@ -5,8 +5,8 @@
 - WAIT_BITE:      等待中鱼，检测 02_on_fish       -> 长按 ;        进入 REELING_FISH
                   检测 04_move_in_bottom          -> 长按 ;        进入 REELING_BOTTOM
 - REELING_FISH:   中鱼收线中，检测 03_keep        -> 停+单击 空格  回到 WAIT_READY
-                  检测 04_move_in_bottom          -> 停（鱼挣脱）  回到 WAIT_READY
-                  按满超时                        -> 停            回到 WAIT_READY
+                  检测 01_ready                   -> 停（收完）    回到 WAIT_READY
+                  按满超时                        -> 续长按（继续收）
 - REELING_BOTTOM: 沉底收线中，检测 02_on_fish     -> 停+续长按 ;   进入 REELING_FISH
                   检测 01_ready                   -> 停（收完）    回到 WAIT_READY
                   按满超时                        -> 续长按（继续收）
@@ -23,6 +23,11 @@
 快捷键控制:
 - ctrl+alt+o  启动自动化（从 WAIT_READY 开始）
 - ctrl+alt+p  停止（暂停回空闲，可再启动；长按收线中立即释放）
+- ctrl+c      优雅退出整个脚本
+
+日志格式（状态变化时打印）:
+- 当前状态 | 事件 | 动作 | 目标状态
+- 检测命中同时打印位置与置信度
 """
 
 import threading
@@ -48,16 +53,34 @@ STOP_SIGNAL = "__STOP__"
 
 
 def _locate_zone(executor, zones, name):
-    """检测指定区域，命中返回中心坐标 (x, y)，未命中返回 None"""
+    """检测指定区域，命中返回 {"x", "y", "score"}，未命中返回 None"""
     zone = zones.get(name)
     if not zone:
         return None
-    return executor.locate_in_center_region(
+    return executor.locate_zone_details(
         zone["center"],
         zone["size"],
         name,
         zone.get("confidence", 0.8),
         zone.get("grayscale", True),
+    )
+
+
+def _describe(details):
+    """格式化位置+置信度"""
+    if not details:
+        return ""
+    score = details.get("score")
+    if score is None:
+        return f"({details['x']}, {details['y']})"
+    return f"({details['x']}, {details['y']}) conf={score:.3f}"
+
+
+def _transition(executor, state, event, action, next_state, details=None):
+    """状态变化日志：当前状态 | 事件 | 动作 | 目标状态"""
+    desc = f" {_describe(details)}" if details else ""
+    executor.log(
+        f"{state} | {event}{desc} -> {action} -> {next_state}", "INFO"
     )
 
 
@@ -90,7 +113,7 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event):
     if state == STATE_READY:
         pos = _locate_zone(executor, zones, "01_ready")
         if pos:
-            executor.log(f"[{state}] 检测到 01_ready @{pos} -> tap ;", "INFO")
+            _transition(executor, state, "01_ready", "tap ;", STATE_BITE, pos)
             kb.tap(";", press_ms=tap_ms)
             return STATE_BITE
         return STATE_READY
@@ -98,34 +121,36 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event):
     if state == STATE_BITE:
         pos = _locate_zone(executor, zones, "02_on_fish")
         if pos:
-            executor.log(f"[{state}] 检测到 02_on_fish @{pos} -> hold ;", "INFO")
+            _transition(executor, state, "02_on_fish", "hold ;", STATE_REEL_FISH, pos)
             return STATE_REEL_FISH
         pos = _locate_zone(executor, zones, "04_move_in_bottom")
         if pos:
-            executor.log(f"[{state}] 检测到 04_move_in_bottom @{pos} -> hold ;", "INFO")
+            _transition(
+                executor, state, "04_move_in_bottom", "hold ;", STATE_REEL_BOTTOM, pos
+            )
             return STATE_REEL_BOTTOM
         return STATE_BITE
 
     if state == STATE_REEL_FISH:
         fired = _hold(
             executor, kb, zones, ";", hold_ms, interval_ms, stop_event,
-            "03_keep", "04_move_in_bottom",
+            "03_keep", "01_ready",
         )
         if fired == STOP_SIGNAL:
-            executor.log("[REELING_FISH] 停止热键 -> 停", "INFO")
+            _transition(executor, state, "停止热键", "停", STATE_STOP)
             return STATE_STOP
         if fired:
             pos = _locate_zone(executor, zones, fired)
             if fired == "03_keep":
-                executor.log(
-                    f"[REELING_FISH] 03_keep 出现 @{pos} -> 停 + tap 空格", "INFO"
+                _transition(
+                    executor, state, "03_keep", "停+单击 空格", STATE_READY, pos
                 )
                 kb.tap("space", press_ms=tap_ms)
                 return STATE_READY
-            executor.log(f"[REELING_FISH] {fired} 出现 @{pos}（鱼挣脱）-> 停", "INFO")
+            _transition(executor, state, "01_ready", "停", STATE_READY, pos)
             return STATE_READY
-        executor.log("[REELING_FISH] 按满超时 -> 停", "INFO")
-        return STATE_READY
+        executor.log(f"{state} | 按满超时 -> 继续收线", "INFO")
+        return STATE_REEL_FISH
 
     if state == STATE_REEL_BOTTOM:
         fired = _hold(
@@ -133,18 +158,18 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event):
             "01_ready", "02_on_fish",
         )
         if fired == STOP_SIGNAL:
-            executor.log("[REELING_BOTTOM] 停止热键 -> 停", "INFO")
+            _transition(executor, state, "停止热键", "停", STATE_STOP)
             return STATE_STOP
         if fired:
             pos = _locate_zone(executor, zones, fired)
             if fired == "02_on_fish":
-                executor.log(
-                    f"[REELING_BOTTOM] 02_on_fish 出现 @{pos} -> 续 hold ;", "INFO"
+                _transition(
+                    executor, state, "02_on_fish", "续长按 ;", STATE_REEL_FISH, pos
                 )
                 return STATE_REEL_FISH
-            executor.log(f"[REELING_BOTTOM] {fired} 出现 @{pos}（收完）-> 停", "INFO")
+            _transition(executor, state, "01_ready", "停", STATE_READY, pos)
             return STATE_READY
-        executor.log("[REELING_BOTTOM] 按满超时 -> 继续收线", "INFO")
+        executor.log(f"{state} | 按满超时 -> 继续收线", "INFO")
         return STATE_REEL_BOTTOM
 
     return state
@@ -192,7 +217,7 @@ def main(executor):
             "INFO",
         )
         hotkeys.start()
-        executor.log("快捷键: ctrl+alt+o 启动 / ctrl+alt+p 停止", "INFO")
+        executor.log("快捷键: ctrl+alt+o 启动 / ctrl+alt+p 停止 / ctrl+c 退出", "INFO")
 
         while True:
             start_event.wait()
@@ -200,10 +225,13 @@ def main(executor):
             stop_event.clear()
             _run_loop(executor, kb, zones, tap_ms, hold_ms, interval_ms, stop_event)
             kb.release_all()
+    except KeyboardInterrupt:
+        executor.log("收到 ctrl+c，优雅退出...", "INFO")
     finally:
         hotkeys.stop()
         # 兜底：确保无按键残留按住
         kb.release_all()
         kb.close()
+        executor.log("已退出", "INFO")
 
     return True

@@ -20,8 +20,8 @@
 | T2 | WAIT_BITE | `02_on_fish` 出现 | hold `;`（中鱼收线） | REELING_FISH |
 | T3 | WAIT_BITE | `04_move_in_bottom` 出现 | hold `;`（沉底收线） | REELING_BOTTOM |
 | T4 | REELING_FISH | `03_keep` 出现 | 停 hold + tap 空格 | WAIT_READY |
-| T5 | REELING_FISH | `04_move_in_bottom` 出现 | 停 hold（鱼挣脱） | WAIT_READY |
-| T6 | REELING_FISH | 超时（hold 按满无事件） | 停 hold | WAIT_READY |
+| T5 | REELING_FISH | `01_ready` 出现 | 停 hold（收完） | WAIT_READY |
+| T6 | REELING_FISH | 超时（hold 按满无事件） | 停 hold → 继续收线 | REELING_FISH |
 | T7 | REELING_BOTTOM | `02_on_fish` 出现 | 停 hold → 立即续 hold `;` | REELING_FISH |
 | T8 | REELING_BOTTOM | `01_ready` 出现 | 停 hold（收线完成） | WAIT_READY |
 | T9 | REELING_BOTTOM | 超时（hold 按满无事件） | 停 hold → 继续收线 | REELING_BOTTOM |
@@ -33,15 +33,15 @@ stateDiagram-v2
     [*] --> WAIT_READY
     WAIT_READY: 等抛竿准备(检测01_ready)
     WAIT_BITE: 等中鱼(检测02_on_fish/04)
-    REELING_FISH: 中鱼收线中(检测03_keep/04)
+    REELING_FISH: 中鱼收线中(检测03_keep/01_ready)
     REELING_BOTTOM: 沉底收线中(检测01_ready/02_on_fish)
 
     WAIT_READY --> WAIT_BITE: 01_ready / tap ;
     WAIT_BITE --> REELING_FISH: 02_on_fish / hold ;
     WAIT_BITE --> REELING_BOTTOM: 04_move_in_bottom / hold ;
     REELING_FISH --> WAIT_READY: 03_keep / stop+space
-    REELING_FISH --> WAIT_READY: 04_move_in_bottom / stop
-    REELING_FISH --> WAIT_READY: 超时 / stop
+    REELING_FISH --> WAIT_READY: 01_ready / stop
+    REELING_FISH --> REELING_FISH: 超时 / 继续收线
     REELING_BOTTOM --> REELING_FISH: 02_on_fish / 续 hold ;
     REELING_BOTTOM --> WAIT_READY: 01_ready / stop
     REELING_BOTTOM --> REELING_BOTTOM: 超时 / 继续收线
@@ -53,7 +53,7 @@ stateDiagram-v2
 |------|---------|
 | WAIT_READY | `01_ready` |
 | WAIT_BITE | `02_on_fish`、`04_move_in_bottom` |
-| REELING_FISH（长按中） | `03_keep`、`04_move_in_bottom` |
+| REELING_FISH（长按中） | `03_keep`、`01_ready` |
 | REELING_BOTTOM（长按中） | `01_ready`、`02_on_fish` |
 
 检测频率 0.5s（`config.detect_interval_ms: 500`，可配置）。长按中断轮询与主循环一致，均 0.5s。
@@ -72,10 +72,33 @@ python -m src.main run docs/examples/04_rf4/rf4.yaml
 |--------|------|
 | `ctrl+alt+o` | 启动自动化（从 WAIT_READY 开始） |
 | `ctrl+alt+p` | 停止（暂停回空闲，可再启动；长按收线中立即释放按键） |
+| `ctrl+c` | 优雅退出整个脚本（释放按键、关连接） |
 
 - 脚本启动后先空闲等待，按 `ctrl+alt+o` 开始自动钓鱼
 - 按 `ctrl+alt+p` 立即停止（含收线长按中途，自动 `release_all` 防卡键），回到空闲
 - 再按 `ctrl+alt+o` 从 `WAIT_READY` 重新开始
+
+## 日志格式
+
+状态变化时打印：`当前状态 | 事件 | 动作 | 目标状态`，检测命中同时打印位置与置信度。
+
+```
+WAIT_BITE | 02_on_fish (500, 300) conf=0.912 -> hold ; -> REELING_FISH
+REELING_FISH | 按满超时 -> 继续收线
+REELING_FISH | 03_keep (480, 320) conf=0.885 -> 停+单击 空格 -> WAIT_READY
+```
+
+## 调试脚本
+
+[detect_debug.py](detect_debug.py) - 全屏检测指定图片，打印位置与置信度：
+
+```bash
+# 持续检测（0.5s 间隔）
+python detect_debug.py images/01_ready.png
+
+# 灰度 + 降低置信度 + 只测一次
+python detect_debug.py images/02_on_fish.png --grayscale --confidence 0.7 --once
+```
 
 ## 检测设置（rf4.yaml detection_zones）
 
@@ -97,7 +120,7 @@ python -m src.main run docs/examples/04_rf4/rf4.yaml
 | `tap_ms` | 单击时长 | `50` |
 | `esp32_host` / `esp32_port` | ESP32 地址 | `192.168.137.11` / `80` |
 
-> `REELING_BOTTOM` 沉底收线在 `hold_ms` 按满后自动续按，直到 `01_ready` 出现（T9 自循环）。
+> `REELING_FISH` / `REELING_BOTTOM` 收线在 `hold_ms` 按满后自动续按，直到 `03_keep` 或 `01_ready` 出现。
 
 ## 键盘控制
 
