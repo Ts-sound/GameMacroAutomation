@@ -211,6 +211,48 @@ class Esp32Keyboard:
             self.release(key)
         return fired
 
+    def combo_hold_interruptible(
+        self,
+        keys,
+        duration_ms: int,
+        interrupt_check=None,
+        interval_ms: int = 50,
+    ):
+        """可中断组合键长按
+
+        同时按住 keys 中所有键，期间周期调用 interrupt_check()，
+        若返回非空（如触发区域名）立即全部释放并返回该值；
+        否则按满 duration_ms 全部释放并返回 None。
+
+        Args:
+            keys: 按键列表，如 [";", "'"]
+            duration_ms: 最长按住时长 ms
+            interrupt_check: 中断条件回调，返回非空值提前释放
+            interval_ms: 条件检查间隔 ms
+
+        Returns:
+            中断触发值（如区域名），按满时长返回 None
+        """
+        for key in keys:
+            self.press(key)
+        fired = None
+        deadline = time.time() + duration_ms / 1000.0
+        try:
+            while True:
+                if interrupt_check is not None:
+                    fired = interrupt_check()
+                    if fired:
+                        break
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    break
+                time.sleep(min(interval_ms / 1000.0, remaining))
+        finally:
+            # 任何中断（含 ctrl+c / 异常）确保按键全部释放
+            for key in reversed(keys):
+                self.release(key)
+        return fired
+
     def combo(self, keys, press_ms: int = DEFAULT_PRESS_MS):
         """组合键，如 ['ctrl', 's']
 

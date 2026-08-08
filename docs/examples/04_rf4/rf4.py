@@ -106,6 +106,18 @@ def _hold(executor, kb, zones, key, hold_ms, interval_ms, stop_event, *watch_nam
     )
 
 
+def _combo_hold(
+    executor, kb, zones, keys, hold_ms, interval_ms, stop_event, *watch_names
+):
+    """可中断组合键长按，返回触发区域名/STOP_SIGNAL（按满返回 None）"""
+    return kb.combo_hold_interruptible(
+        keys,
+        duration_ms=hold_ms,
+        interrupt_check=_interrupt_check(executor, zones, stop_event, *watch_names),
+        interval_ms=interval_ms,
+    )
+
+
 def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event):
     """状态机单步执行，返回下一个状态"""
     if state == STATE_READY:
@@ -130,8 +142,8 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event):
         return STATE_BITE
 
     if state == STATE_REEL_FISH:
-        fired = _hold(
-            executor, kb, zones, ";", hold_ms, interval_ms, stop_event,
+        fired = _combo_hold(
+            executor, kb, zones, [";", "'"], hold_ms, interval_ms, stop_event,
             "03_keep", "01_ready",
         )
         if fired == STOP_SIGNAL:

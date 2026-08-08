@@ -9,7 +9,7 @@
 |------|------|
 | `WAIT_READY` | 等待抛竿准备 |
 | `WAIT_BITE` | 抛竿后等待中鱼 |
-| `REELING_FISH` | 中鱼收线中（长按 `;`） |
+| `REELING_FISH` | 中鱼收线中（长按 `;`+`'` 组合键） |
 | `REELING_BOTTOM` | 沉底收线中（长按 `;`） |
 
 ### 状态跳转表（检测频率 0.5s）
@@ -17,11 +17,11 @@
 | # | 当前状态 | 检测事件(0.5s) | 动作 | 目标状态 |
 |---|---------|---------------|------|---------|
 | T1 | WAIT_READY | `01_ready` 出现 | tap `;` | WAIT_BITE |
-| T2 | WAIT_BITE | `02_on_fish` 出现 | hold `;`（中鱼收线） | REELING_FISH |
+| T2 | WAIT_BITE | `02_on_fish` 出现 | hold `;`（进入中鱼收线） | REELING_FISH |
 | T3 | WAIT_BITE | `04_move_in_bottom` 出现 | hold `;`（沉底收线） | REELING_BOTTOM |
-| T4 | REELING_FISH | `03_keep` 出现 | 停 hold + tap 空格 | WAIT_READY |
-| T5 | REELING_FISH | `01_ready` 出现 | 停 hold（收完） | WAIT_READY |
-| T6 | REELING_FISH | 超时（hold 按满无事件） | 停 hold → 继续收线 | REELING_FISH |
+| T4 | REELING_FISH | `03_keep` 出现 | 停 `;`+`'` + tap 空格 | WAIT_READY |
+| T5 | REELING_FISH | `01_ready` 出现 | 停 `;`+`'`（收完） | WAIT_READY |
+| T6 | REELING_FISH | 超时（hold 按满无事件） | 停 `;`+`'` → 继续收线 | REELING_FISH |
 | T7 | REELING_BOTTOM | `02_on_fish` 出现 | 停 hold → 立即续 hold `;` | REELING_FISH |
 | T8 | REELING_BOTTOM | `01_ready` 出现 | 停 hold（收线完成） | WAIT_READY |
 | T9 | REELING_BOTTOM | 超时（hold 按满无事件） | 停 hold → 继续收线 | REELING_BOTTOM |
@@ -120,7 +120,7 @@ python detect_debug.py images/02_on_fish.png --grayscale --confidence 0.7 --once
 | `tap_ms` | 单击时长 | `50` |
 | `esp32_host` / `esp32_port` | ESP32 地址 | `192.168.137.11` / `80` |
 
-> `REELING_FISH` / `REELING_BOTTOM` 收线单次 `hold_ms`（默认 10s），按满自动续按直到 `03_keep` 或 `01_ready` 出现；`03_keep` 可随时中断收线。
+> `REELING_FISH` 收线用 `;`+`'` 组合键长按；`REELING_BOTTOM` 收线用 `;`。两者单次 `hold_ms`（默认 10s），按满自动续按直到 `03_keep` 或 `01_ready` 出现；`03_keep` 可随时中断收线。
 
 ## 键盘控制
 
@@ -144,6 +144,7 @@ python detect_debug.py images/02_on_fish.png --grayscale --confidence 0.7 --once
 | `tap(key, press_ms=50)` | 单击（press -> sleep -> release） |
 | `hold(key, duration_ms)` | 长按（press -> sleep -> release） |
 | `hold_interruptible(key, duration_ms, interrupt_check, interval_ms)` | 可中断长按：按住期间周期调用 `interrupt_check()`，返回非空值（区域名）立即释放并返回该值；按满时长返回 None |
+| `combo_hold_interruptible(keys, duration_ms, interrupt_check, interval_ms)` | 可中断组合键长按：同时按住 keys 全部键，中断时全部释放 |
 | `combo(keys, press_ms=50)` | 组合键，如 `["ctrl", "s"]` |
 | `press(key)` / `release(key)` | 原始按下/释放 |
 | `release_all()` | 释放全部按键 |
