@@ -98,6 +98,34 @@ class ScriptAPI:
         )
         return bool(matches)
 
+    def locate_in_center_region(
+        self,
+        center: tuple,
+        size: tuple,
+        template_name: str,
+        confidence: float = 0.8,
+        grayscale: bool = True,
+    ) -> Optional[Tuple[int, int]]:
+        """
+        在指定中心点 + 尺寸区域内检测模板并返回中心坐标
+
+        Args:
+            center: 区域中心点 (x, y) 绝对像素
+            size: 区域尺寸 (w, h) 绝对像素
+            template_name: 模板名称
+            confidence: 置信度
+            grayscale: 是否灰度匹配
+
+        Returns:
+            (x, y) 目标中心全屏坐标；未找到返回 None
+        """
+        matches = self._executor._detect_in_center_region(
+            center, size, template_name, confidence, grayscale
+        )
+        if not matches:
+            return None
+        return (matches[0].screen_x, matches[0].screen_y)
+
     def get_detection_zones(self) -> dict:
         """获取当前脚本的检测区域配置（YAML detection_zones）"""
         script = getattr(self._executor, "current_script", None)

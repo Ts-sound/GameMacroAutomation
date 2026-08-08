@@ -47,12 +47,12 @@ STATE_INIT = STATE_READY
 STOP_SIGNAL = "__STOP__"
 
 
-def _detect_zone(executor, zones, name):
-    """检测指定区域，返回是否命中"""
+def _locate_zone(executor, zones, name):
+    """检测指定区域，命中返回中心坐标 (x, y)，未命中返回 None"""
     zone = zones.get(name)
     if not zone:
-        return False
-    return executor.detect_in_center_region(
+        return None
+    return executor.locate_in_center_region(
         zone["center"],
         zone["size"],
         name,
@@ -68,7 +68,7 @@ def _interrupt_check(executor, zones, stop_event, *names):
         if stop_event.is_set():
             return STOP_SIGNAL
         for n in names:
-            if _detect_zone(executor, zones, n):
+            if _locate_zone(executor, zones, n):
                 return n
         return None
 
@@ -88,18 +88,21 @@ def _hold(executor, kb, zones, key, hold_ms, interval_ms, stop_event, *watch_nam
 def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event):
     """状态机单步执行，返回下一个状态"""
     if state == STATE_READY:
-        if _detect_zone(executor, zones, "01_ready"):
-            executor.log(f"[{state}] 检测到 01_ready -> tap ;", "INFO")
+        pos = _locate_zone(executor, zones, "01_ready")
+        if pos:
+            executor.log(f"[{state}] 检测到 01_ready @{pos} -> tap ;", "INFO")
             kb.tap(";", press_ms=tap_ms)
             return STATE_BITE
         return STATE_READY
 
     if state == STATE_BITE:
-        if _detect_zone(executor, zones, "02_on_fish"):
-            executor.log(f"[{state}] 检测到 02_on_fish -> hold ;", "INFO")
+        pos = _locate_zone(executor, zones, "02_on_fish")
+        if pos:
+            executor.log(f"[{state}] 检测到 02_on_fish @{pos} -> hold ;", "INFO")
             return STATE_REEL_FISH
-        if _detect_zone(executor, zones, "04_move_in_bottom"):
-            executor.log(f"[{state}] 检测到 04_move_in_bottom -> hold ;", "INFO")
+        pos = _locate_zone(executor, zones, "04_move_in_bottom")
+        if pos:
+            executor.log(f"[{state}] 检测到 04_move_in_bottom @{pos} -> hold ;", "INFO")
             return STATE_REEL_BOTTOM
         return STATE_BITE
 
@@ -111,12 +114,15 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event):
         if fired == STOP_SIGNAL:
             executor.log("[REELING_FISH] 停止热键 -> 停", "INFO")
             return STATE_STOP
-        if fired == "03_keep":
-            executor.log("[REELING_FISH] 03_keep 出现 -> 停 + tap 空格", "INFO")
-            kb.tap("space", press_ms=tap_ms)
-            return STATE_READY
-        if fired == "04_move_in_bottom":
-            executor.log("[REELING_FISH] 04 出现（鱼挣脱）-> 停", "INFO")
+        if fired:
+            pos = _locate_zone(executor, zones, fired)
+            if fired == "03_keep":
+                executor.log(
+                    f"[REELING_FISH] 03_keep 出现 @{pos} -> 停 + tap 空格", "INFO"
+                )
+                kb.tap("space", press_ms=tap_ms)
+                return STATE_READY
+            executor.log(f"[REELING_FISH] {fired} 出现 @{pos}（鱼挣脱）-> 停", "INFO")
             return STATE_READY
         executor.log("[REELING_FISH] 按满超时 -> 停", "INFO")
         return STATE_READY
@@ -129,11 +135,14 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event):
         if fired == STOP_SIGNAL:
             executor.log("[REELING_BOTTOM] 停止热键 -> 停", "INFO")
             return STATE_STOP
-        if fired == "02_on_fish":
-            executor.log("[REELING_BOTTOM] 02_on_fish 出现 -> 续 hold ;", "INFO")
-            return STATE_REEL_FISH
-        if fired == "01_ready":
-            executor.log("[REELING_BOTTOM] 01_ready 出现（收完）-> 停", "INFO")
+        if fired:
+            pos = _locate_zone(executor, zones, fired)
+            if fired == "02_on_fish":
+                executor.log(
+                    f"[REELING_BOTTOM] 02_on_fish 出现 @{pos} -> 续 hold ;", "INFO"
+                )
+                return STATE_REEL_FISH
+            executor.log(f"[REELING_BOTTOM] {fired} 出现 @{pos}（收完）-> 停", "INFO")
             return STATE_READY
         executor.log("[REELING_BOTTOM] 按满超时 -> 继续收线", "INFO")
         return STATE_REEL_BOTTOM
