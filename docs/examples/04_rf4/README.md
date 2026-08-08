@@ -66,6 +66,17 @@ stateDiagram-v2
 python -m src.main run docs/examples/04_rf4/rf4.yaml
 ```
 
+## 快捷键控制
+
+| 快捷键 | 功能 |
+|--------|------|
+| `ctrl+alt+o` | 启动自动化（从 WAIT_READY 开始） |
+| `ctrl+alt+p` | 停止（暂停回空闲，可再启动；长按收线中立即释放按键） |
+
+- 脚本启动后先空闲等待，按 `ctrl+alt+o` 开始自动钓鱼
+- 按 `ctrl+alt+p` 立即停止（含收线长按中途，自动 `release_all` 防卡键），回到空闲
+- 再按 `ctrl+alt+o` 从 `WAIT_READY` 重新开始
+
 ## 检测设置（rf4.yaml detection_zones）
 
 | 字段 | 说明 | 默认 |

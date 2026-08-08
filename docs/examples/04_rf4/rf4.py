@@ -19,11 +19,17 @@
 
 检测频率 detect_interval_ms（默认 500ms）:
 - 主循环轮询与长按中断检查共用同一频率
+
+快捷键控制:
+- ctrl+alt+o  启动自动化（从 WAIT_READY 开始）
+- ctrl+alt+p  停止（暂停回空闲，可再启动；长按收线中立即释放）
 """
 
+import threading
 import time
 
 from esp32_keyboard import DEFAULT_HOST, DEFAULT_PORT, Esp32Keyboard
+from pynput import keyboard
 
 DEFAULT_TAP_MS = 50
 DEFAULT_HOLD_MS = 400
@@ -34,7 +40,11 @@ STATE_READY = "WAIT_READY"  # 等待抛竿
 STATE_BITE = "WAIT_BITE"  # 等待中鱼
 STATE_REEL_FISH = "REELING_FISH"  # 中鱼收线中
 STATE_REEL_BOTTOM = "REELING_BOTTOM"  # 沉底收线中
+STATE_STOP = "STOPPED"  # 停止
 STATE_INIT = STATE_READY
+
+# 长按中断哨兵：停止热键触发
+STOP_SIGNAL = "__STOP__"
 
 
 def _detect_zone(executor, zones, name):
@@ -51,10 +61,12 @@ def _detect_zone(executor, zones, name):
     )
 
 
-def _interrupt_check(executor, zones, *names):
-    """返回中断条件：返回首个命中的区域名，全部未命中返回 None"""
+def _interrupt_check(executor, zones, stop_event, *names):
+    """返回中断条件：返回首个命中的区域名或 STOP_SIGNAL，全部未命中返回 None"""
 
     def check():
+        if stop_event.is_set():
+            return STOP_SIGNAL
         for n in names:
             if _detect_zone(executor, zones, n):
                 return n
@@ -63,17 +75,17 @@ def _interrupt_check(executor, zones, *names):
     return check
 
 
-def _hold(executor, kb, zones, key, hold_ms, interval_ms, *watch_names):
-    """可中断长按，返回触发区域名（按满返回 None）"""
+def _hold(executor, kb, zones, key, hold_ms, interval_ms, stop_event, *watch_names):
+    """可中断长按，返回触发区域名/STOP_SIGNAL（按满返回 None）"""
     return kb.hold_interruptible(
         key,
         duration_ms=hold_ms,
-        interrupt_check=_interrupt_check(executor, zones, *watch_names),
+        interrupt_check=_interrupt_check(executor, zones, stop_event, *watch_names),
         interval_ms=interval_ms,
     )
 
 
-def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms):
+def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event):
     """状态机单步执行，返回下一个状态"""
     if state == STATE_READY:
         if _detect_zone(executor, zones, "01_ready"):
@@ -93,9 +105,12 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms):
 
     if state == STATE_REEL_FISH:
         fired = _hold(
-            executor, kb, zones, ";", hold_ms, interval_ms,
+            executor, kb, zones, ";", hold_ms, interval_ms, stop_event,
             "03_keep", "04_move_in_bottom",
         )
+        if fired == STOP_SIGNAL:
+            executor.log("[REELING_FISH] 停止热键 -> 停", "INFO")
+            return STATE_STOP
         if fired == "03_keep":
             executor.log("[REELING_FISH] 03_keep 出现 -> 停 + tap 空格", "INFO")
             kb.tap("space", press_ms=tap_ms)
@@ -108,8 +123,12 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms):
 
     if state == STATE_REEL_BOTTOM:
         fired = _hold(
-            executor, kb, zones, ";", hold_ms, interval_ms, "01_ready", "02_on_fish"
+            executor, kb, zones, ";", hold_ms, interval_ms, stop_event,
+            "01_ready", "02_on_fish",
         )
+        if fired == STOP_SIGNAL:
+            executor.log("[REELING_BOTTOM] 停止热键 -> 停", "INFO")
+            return STATE_STOP
         if fired == "02_on_fish":
             executor.log("[REELING_BOTTOM] 02_on_fish 出现 -> 续 hold ;", "INFO")
             return STATE_REEL_FISH
@@ -122,6 +141,20 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms):
     return state
 
 
+def _run_loop(executor, kb, zones, tap_ms, hold_ms, interval_ms, stop_event):
+    """运行自动化主循环，停止热键触发时退出"""
+    state = STATE_INIT
+    executor.log(f"启动自动化，初始状态: {state}", "INFO")
+    while not stop_event.is_set():
+        state = step(
+            executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event
+        )
+        if state == STATE_STOP:
+            break
+        time.sleep(interval_ms / 1000.0)
+    executor.log("自动化已停止", "INFO")
+
+
 def main(executor):
     cfg = executor.get_script_config()
     zones = executor.get_detection_zones()
@@ -132,6 +165,15 @@ def main(executor):
     hold_ms = int(cfg.get("hold_ms", DEFAULT_HOLD_MS))
     interval_ms = int(cfg.get("detect_interval_ms", DEFAULT_INTERVAL_MS))
 
+    start_event = threading.Event()
+    stop_event = threading.Event()
+    hotkeys = keyboard.GlobalHotKeys(
+        {
+            "<ctrl>+<alt>+o": start_event.set,
+            "<ctrl>+<alt>+p": stop_event.set,
+        }
+    )
+
     kb = Esp32Keyboard(host=host, port=port)
     try:
         kb.connect()
@@ -140,13 +182,17 @@ def main(executor):
             f"长按时长 {hold_ms}ms，单击时长 {tap_ms}ms，检测频率 {interval_ms}ms",
             "INFO",
         )
+        hotkeys.start()
+        executor.log("快捷键: ctrl+alt+o 启动 / ctrl+alt+p 停止", "INFO")
 
-        state = STATE_INIT
-        executor.log(f"初始状态: {state}", "INFO")
         while True:
-            state = step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms)
-            time.sleep(interval_ms / 1000.0)
+            start_event.wait()
+            start_event.clear()
+            stop_event.clear()
+            _run_loop(executor, kb, zones, tap_ms, hold_ms, interval_ms, stop_event)
+            kb.release_all()
     finally:
+        hotkeys.stop()
         # 兜底：确保无按键残留按住
         kb.release_all()
         kb.close()
