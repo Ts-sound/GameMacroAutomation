@@ -196,16 +196,19 @@ class Esp32Keyboard:
         self.press(key)
         fired = None
         deadline = time.time() + duration_ms / 1000.0
-        while True:
-            if interrupt_check is not None:
-                fired = interrupt_check()
-                if fired:
+        try:
+            while True:
+                if interrupt_check is not None:
+                    fired = interrupt_check()
+                    if fired:
+                        break
+                remaining = deadline - time.time()
+                if remaining <= 0:
                     break
-            remaining = deadline - time.time()
-            if remaining <= 0:
-                break
-            time.sleep(min(interval_ms / 1000.0, remaining))
-        self.release(key)
+                time.sleep(min(interval_ms / 1000.0, remaining))
+        finally:
+            # 任何中断（含 ctrl+c / 异常）确保按键释放
+            self.release(key)
         return fired
 
     def combo(self, keys, press_ms: int = DEFAULT_PRESS_MS):

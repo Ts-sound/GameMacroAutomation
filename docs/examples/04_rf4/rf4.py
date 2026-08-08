@@ -225,11 +225,34 @@ def main(executor):
             kb.release_all()
     except KeyboardInterrupt:
         executor.log("收到 ctrl+c，优雅退出...", "INFO")
+    except Exception as e:
+        import traceback
+
+        executor.log(f"运行异常: {e}", "ERROR")
+        executor.log(f"堆栈: {traceback.format_exc()}", "INFO")
     finally:
-        hotkeys.stop()
-        # 兜底：确保无按键残留按住
-        kb.release_all()
-        kb.close()
+        _safe_stop(hotkeys)
+        _safe_release(kb)
         executor.log("已退出", "INFO")
 
     return True
+
+
+def _safe_stop(hotkeys):
+    """安全停止热键监听，异常不阻断清理"""
+    try:
+        hotkeys.stop()
+    except Exception:
+        pass
+
+
+def _safe_release(kb):
+    """安全释放按键并关闭连接，异常不阻断清理"""
+    try:
+        kb.release_all()
+    except Exception:
+        pass
+    try:
+        kb.close()
+    except Exception:
+        pass

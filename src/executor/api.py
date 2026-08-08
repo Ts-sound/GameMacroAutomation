@@ -389,5 +389,5 @@ class PythonRunner:
             self._executor.log(f"Python 脚本执行错误：{e}", "ERROR")
             import traceback
 
-            self._executor.log(f"堆栈：{traceback.format_exc()}", "DEBUG")
+            self._executor.log(f"堆栈：{traceback.format_exc()}", "WARNING")
             return False
