@@ -80,12 +80,12 @@ python -m src.main run docs/examples/04_rf4/rf4.yaml
 
 ## 日志格式
 
-状态变化时打印：`当前状态 | 事件 | 动作 | 目标状态`，检测命中同时打印位置与置信度。
+状态变化时打印：`[当前状态] | 事件 | 动作 | 目标状态`，检测命中同时打印位置与置信度。
 
 ```
-WAIT_BITE | 02_on_fish (500, 300) conf=0.912 -> hold ; -> REELING_FISH
-REELING_FISH | 按满超时 -> 继续收线
-REELING_FISH | 03_keep (480, 320) conf=0.885 -> 停+单击 空格 -> WAIT_READY
+[WAIT_BITE] | 02_on_fish (500, 300) conf=0.912 -> hold ; -> REELING_FISH
+[REELING_FISH] | 按满超时 -> 继续收线
+[REELING_FISH] | 03_keep (480, 320) conf=0.885 -> 停+单击 空格 -> WAIT_READY
 ```
 
 ## 调试脚本
@@ -116,11 +116,11 @@ python detect_debug.py images/02_on_fish.png --grayscale --confidence 0.7 --once
 | 字段 | 说明 | 默认 |
 |------|------|------|
 | `detect_interval_ms` | 检测频率 | `500` |
-| `hold_ms` | 长按时长（单次收线） | `400` |
+| `hold_ms` | 长按时长（单次收线） | `10000` |
 | `tap_ms` | 单击时长 | `50` |
 | `esp32_host` / `esp32_port` | ESP32 地址 | `192.168.137.11` / `80` |
 
-> `REELING_FISH` / `REELING_BOTTOM` 收线在 `hold_ms` 按满后自动续按，直到 `03_keep` 或 `01_ready` 出现。
+> `REELING_FISH` / `REELING_BOTTOM` 收线单次 `hold_ms`（默认 10s），按满自动续按直到 `03_keep` 或 `01_ready` 出现；`03_keep` 可随时中断收线。
 
 ## 键盘控制
 

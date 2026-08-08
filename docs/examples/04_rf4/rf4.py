@@ -37,7 +37,7 @@ from esp32_keyboard import DEFAULT_HOST, DEFAULT_PORT, Esp32Keyboard
 from pynput import keyboard
 
 DEFAULT_TAP_MS = 50
-DEFAULT_HOLD_MS = 400
+DEFAULT_HOLD_MS = 10000
 DEFAULT_INTERVAL_MS = 500
 
 # 状态定义
@@ -77,11 +77,9 @@ def _describe(details):
 
 
 def _transition(executor, state, event, action, next_state, details=None):
-    """状态变化日志：当前状态 | 事件 | 动作 | 目标状态"""
+    """状态变化日志：[当前状态] | 事件 | 动作 | 目标状态"""
     desc = f" {_describe(details)}" if details else ""
-    executor.log(
-        f"{state} | {event}{desc} -> {action} -> {next_state}", "INFO"
-    )
+    executor.log(f"[{state}] | {event}{desc} -> {action} -> {next_state}", "INFO")
 
 
 def _interrupt_check(executor, zones, stop_event, *names):
@@ -149,7 +147,7 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event):
                 return STATE_READY
             _transition(executor, state, "01_ready", "停", STATE_READY, pos)
             return STATE_READY
-        executor.log(f"{state} | 按满超时 -> 继续收线", "INFO")
+        executor.log(f"[{state}] | 按满超时 -> 继续收线", "INFO")
         return STATE_REEL_FISH
 
     if state == STATE_REEL_BOTTOM:
@@ -169,7 +167,7 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event):
                 return STATE_REEL_FISH
             _transition(executor, state, "01_ready", "停", STATE_READY, pos)
             return STATE_READY
-        executor.log(f"{state} | 按满超时 -> 继续收线", "INFO")
+        executor.log(f"[{state}] | 按满超时 -> 继续收线", "INFO")
         return STATE_REEL_BOTTOM
 
     return state
@@ -178,7 +176,7 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event):
 def _run_loop(executor, kb, zones, tap_ms, hold_ms, interval_ms, stop_event):
     """运行自动化主循环，停止热键触发时退出"""
     state = STATE_INIT
-    executor.log(f"启动自动化，初始状态: {state}", "INFO")
+    executor.log(f"启动自动化，初始状态: [{state}]", "INFO")
     while not stop_event.is_set():
         state = step(
             executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event
