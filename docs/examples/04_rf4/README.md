@@ -8,23 +8,27 @@
 | 状态 | 含义 |
 |------|------|
 | `WAIT_READY` | 等待抛竿准备 |
-| `WAIT_BITE` | 抛竿后等待中鱼 |
+| `WAIT_SINK` | 抛竿后等待下沉到目标（锁轮） |
+| `JIGGING` | 抽动状态（`'` 按/松循环），等待上鱼 |
 | `REELING_FISH` | 中鱼收线中（长按 `;`+`'` 组合键） |
-| `REELING_BOTTOM` | 沉底收线中（长按 `;`） |
+
+### 下沉目标模式
+
+| 模式 | 目标图 | 切换 |
+|------|--------|------|
+| `bottom` | `04_move_in_bottom`（沉底） | `ctrl+alt+[` |
+| `depth15` | `05_depth_15`（下沉到 15m） | `ctrl+alt+[` |
 
 ### 状态跳转表（检测频率 0.5s）
 
 | # | 当前状态 | 检测事件(0.5s) | 动作 | 目标状态 |
 |---|---------|---------------|------|---------|
-| T1 | WAIT_READY | `01_ready` 出现 | tap `;` | WAIT_BITE |
-| T2 | WAIT_BITE | `02_on_fish` 出现 | hold `;`（进入中鱼收线） | REELING_FISH |
-| T3 | WAIT_BITE | `04_move_in_bottom` 出现 | hold `;`（沉底收线） | REELING_BOTTOM |
+| T1 | WAIT_READY | `01_ready` 出现 | tap `;` | WAIT_SINK |
+| T2 | WAIT_SINK | 目标图（`04`/`05` 按模式）出现 | tap `;` 锁轮 | JIGGING |
+| T3 | JIGGING | `02_on_fish` 出现 | 停抽动 | REELING_FISH |
 | T4 | REELING_FISH | `03_keep` 出现 | 停 `;`+`'` + tap 空格 | WAIT_READY |
 | T5 | REELING_FISH | `01_ready` 出现 | 停 `;`+`'`（收完） | WAIT_READY |
 | T6 | REELING_FISH | 超时（hold 按满无事件） | 停 `;`+`'` → 继续收线 | REELING_FISH |
-| T7 | REELING_BOTTOM | `02_on_fish` 出现 | 停 hold → 立即续 hold `;` | REELING_FISH |
-| T8 | REELING_BOTTOM | `01_ready` 出现 | 停 hold（收线完成） | WAIT_READY |
-| T9 | REELING_BOTTOM | 超时（hold 按满无事件） | 停 hold → 继续收线 | REELING_BOTTOM |
 
 ### 状态图
 
@@ -32,19 +36,16 @@
 stateDiagram-v2
     [*] --> WAIT_READY
     WAIT_READY: 等抛竿准备(检测01_ready)
-    WAIT_BITE: 等中鱼(检测02_on_fish/04)
+    WAIT_SINK: 等待下沉目标(检测04/05)
+    JIGGING: 抽动中(检测02_on_fish)
     REELING_FISH: 中鱼收线中(检测03_keep/01_ready)
-    REELING_BOTTOM: 沉底收线中(检测01_ready/02_on_fish)
 
-    WAIT_READY --> WAIT_BITE: 01_ready / tap ;
-    WAIT_BITE --> REELING_FISH: 02_on_fish / hold ;
-    WAIT_BITE --> REELING_BOTTOM: 04_move_in_bottom / hold ;
+    WAIT_READY --> WAIT_SINK: 01_ready / tap ;
+    WAIT_SINK --> JIGGING: 目标图 / tap ; 锁轮
+    JIGGING --> REELING_FISH: 02_on_fish / 停抽动
     REELING_FISH --> WAIT_READY: 03_keep / stop+space
     REELING_FISH --> WAIT_READY: 01_ready / stop
     REELING_FISH --> REELING_FISH: 超时 / 继续收线
-    REELING_BOTTOM --> REELING_FISH: 02_on_fish / 续 hold ;
-    REELING_BOTTOM --> WAIT_READY: 01_ready / stop
-    REELING_BOTTOM --> REELING_BOTTOM: 超时 / 继续收线
 ```
 
 ### 各状态检测图片集（0.5s 轮询）
@@ -52,9 +53,9 @@ stateDiagram-v2
 | 状态 | 检测图片 |
 |------|---------|
 | WAIT_READY | `01_ready` |
-| WAIT_BITE | `02_on_fish`、`04_move_in_bottom` |
+| WAIT_SINK | `04_move_in_bottom`（bottom）/ `05_depth_15`（depth15） |
+| JIGGING | `02_on_fish` |
 | REELING_FISH（长按中） | `03_keep`、`01_ready` |
-| REELING_BOTTOM（长按中） | `01_ready`、`02_on_fish` |
 
 检测频率 0.5s（`config.detect_interval_ms: 500`，可配置）。长按中断轮询与主循环一致，均 0.5s。
 
@@ -71,7 +72,8 @@ python -m src.main run docs/examples/04_rf4/rf4.yaml
 | 快捷键 | 功能 |
 |--------|------|
 | `ctrl+alt+o` | 启动自动化（从 WAIT_READY 开始） |
-| `ctrl+alt+p` | 停止（暂停回空闲，可再启动；长按收线中立即释放按键） |
+| `ctrl+alt+p` | 停止（暂停回空闲，可再启动；长按收线/抽动中立即释放按键） |
+| `ctrl+alt+[` | 切换下沉目标（`bottom` <-> `depth15`） |
 | `ctrl+c` | 优雅退出整个脚本（释放按键、关连接） |
 
 - 脚本启动后先空闲等待，按 `ctrl+alt+o` 开始自动钓鱼
@@ -83,7 +85,8 @@ python -m src.main run docs/examples/04_rf4/rf4.yaml
 状态变化时打印：`[当前状态] | 事件 | 动作 | 目标状态`，检测命中同时打印位置与置信度。
 
 ```
-[WAIT_BITE] | 02_on_fish (500, 300) conf=0.912 -> hold ; -> REELING_FISH
+[WAIT_SINK] | 04_move_in_bottom (500, 300) conf=0.912 -> tap ; 锁轮 -> JIGGING
+[JIGGING] | 02_on_fish (480, 320) conf=0.885 -> 停抽动 -> REELING_FISH
 [REELING_FISH] | 按满超时 -> 继续收线
 [REELING_FISH] | 03_keep (480, 320) conf=0.885 -> 停+单击 空格 -> WAIT_READY
 ```
@@ -117,10 +120,15 @@ python detect_debug.py images/02_on_fish.png --grayscale --confidence 0.7 --once
 |------|------|------|
 | `detect_interval_ms` | 检测频率 | `500` |
 | `hold_ms` | 长按时长（单次收线） | `10000` |
-| `tap_ms` | 单击时长 | `50` |
-| `esp32_host` / `esp32_port` | ESP32 地址 | `192.168.137.11` / `80` |
+| `tap_ms` | 单击时长 | `100` |
+| `sink_mode` | 下沉目标模式 | `bottom` |
+| `jig_press_ms` | 抽动 `'` 按下时长 | `1000` |
+| `jig_release_ms` | 抽动 `'` 松开时长 | `1000` |
+| `esp32_host` / `esp32_port` | ESP32 地址 | `192.168.137.138` / `80` |
 
-> `REELING_FISH` 收线用 `;`+`'` 组合键长按；`REELING_BOTTOM` 收线用 `;`。两者单次 `hold_ms`（默认 10s），按满自动续按直到 `03_keep` 或 `01_ready` 出现；`03_keep` 可随时中断收线。
+> `REELING_FISH` 收线用 `;`+`'` 组合键长按，单次 `hold_ms`（默认 10s），按满自动续按直到 `03_keep` 或 `01_ready` 出现；`03_keep` 可随时中断收线。
+>
+> `JIGGING` 抽动：`'` 按 `jig_press_ms` 后松 `jig_release_ms` 循环，期间检测 `02_on_fish` 上鱼即停。
 
 ## 键盘控制
 
