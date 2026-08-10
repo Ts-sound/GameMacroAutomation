@@ -2,12 +2,13 @@
 
 状态:
 - WAIT_READY:   等待抛竿，检测 01_ready         -> 单击 ;       进入 WAIT_SINK
-- WAIT_SINK:    等待下沉到目标，检测目标图        -> 单击 ; 锁轮   进入 JIGGING
+- WAIT_SINK:    等待下沉到目标，检测 02_on_fish    -> 开始收线     进入 REELING_FISH
+                检测目标图                        -> 单击 ; 锁轮   进入 JIGGING
                 （BOTTOM 模式检测 04_move_in_bottom，
                  DEPTH15 模式检测 05_depth_15）
 - JIGGING:      抽动状态，' 按 jig_press_ms / 松 jig_release_ms 循环
                 检测 02_on_fish（上鱼）          -> 停抽动       进入 REELING_FISH
-- REELING_FISH: 中鱼收线中，长按 ;+' 组合键
+- REELING_FISH: 中鱼收线中，长按 shift+;+' 组合键（shift 加速）
                 检测 03_keep                    -> 停+单击 空格   回到 WAIT_READY
                 检测 01_ready                   -> 停（收完）     回到 WAIT_READY
                 按满超时                        -> 续长按（继续收）
@@ -180,6 +181,11 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event,
         return STATE_READY
 
     if state == STATE_SINK:
+        # 下沉中上鱼优先：检测到直接开始收线
+        pos = _locate_zone(executor, zones, "02_on_fish")
+        if pos:
+            _transition(executor, state, "02_on_fish", "开始收线", STATE_REEL_FISH, pos)
+            return STATE_REEL_FISH
         target = MODE_ICONS[sink_mode]
         pos = _locate_zone(executor, zones, target)
         if pos:
@@ -195,7 +201,7 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event,
 
     if state == STATE_REEL_FISH:
         fired = _combo_hold(
-            executor, kb, zones, [";", "'"], hold_ms, interval_ms, stop_event,
+            executor, kb, zones, ["shift", ";", "'"], hold_ms, interval_ms, stop_event,
             "03_keep", "01_ready",
         )
         if fired == STOP_SIGNAL:

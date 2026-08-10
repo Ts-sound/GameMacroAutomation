@@ -55,7 +55,7 @@ detection_zones:
     image: "images/05_depth_15.png"
     center: [1643, 1516]
     size: [400, 400]
-    confidence: 0.8
+    confidence: 0.9
     grayscale: false
 
 python_script: "rf4.py"
