@@ -213,6 +213,7 @@ def step(executor, kb, state, zones, tap_ms, hold_ms, interval_ms, stop_event,
                 _transition(
                     executor, state, "03_keep", "停+单击 空格", STATE_READY, pos
                 )
+                time.sleep(0.5)
                 kb.tap("space", press_ms=tap_ms)
                 return STATE_READY
             _transition(executor, state, "01_ready", "停", STATE_READY, pos)
