@@ -8,14 +8,14 @@ meta:
 config:
   window_title: "游戏窗口"
   log_level: "INFO"
-  esp32_host: "192.168.137.138"
+  esp32_host: "192.168.137.6"
   esp32_port: 80
   tap_ms: 100 # 单击按键时长 ms
-  hold_ms: 10000 # 长按按键时长 ms（收线单次时长）
+  hold_ms: 300000 # 长按按键时长 ms（收线单次时长）
   detect_interval_ms: 500 # 检测频率 ms
-  sink_mode: "depth15" # 下沉目标: bottom(04_move_in_bottom) / depth15(05_depth_15)
-  jig_press_ms: 1000 # 抽动 ' 按下时长 ms
-  jig_release_ms: 1900 # 抽动 ' 松开时长 ms
+  sink_mode: "bottom" # 下沉目标: bottom(04_move_in_bottom) / depth15(05_depth_15)
+  jig_press_ms: 260 # 抽动 ' 按下时长 ms
+  jig_release_ms: 2100 # 抽动 ' 松开时长 ms
 
 assets:
   images:
