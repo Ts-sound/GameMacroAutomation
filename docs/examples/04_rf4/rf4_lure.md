@@ -124,13 +124,13 @@ python -m src.main run docs/examples/04_rf4/rf4_lure.yaml
 | `grayscale` | 灰度匹配 | `false` |
 | `confidence` | 置信度 | `0.8` |
 
-每个区域名即模板名，对应 `images/<区域名>.png`：
+区域名仅作脚本索引，实际匹配图片取各区域的 `image` 字段（相对脚本目录）：
 
 | 区域名 | 图片 | 中心 |
 |--------|------|------|
-| `01_ready` | `images/01_ready.png` | `[700, 1500]` |
+| `01_ready` | `images/01_ready_2.png` | `[700, 1500]` |
 | `02_on_fish` | `images/02_on_fish.png` | `[700, 1500]` |
-| `03_keep` | `images/03_keep.png` | `[1080, 1400]` |
+| `03_keep` | `images/03_keep_2.png` | `[1080, 1400]` |
 
 ## 键盘控制
 

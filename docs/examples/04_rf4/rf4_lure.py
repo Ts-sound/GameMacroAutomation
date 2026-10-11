@@ -57,14 +57,17 @@ STOP_SIGNAL = "__STOP__"
 
 
 def _locate_zone(executor, zones, name):
-    """检测指定区域，命中返回 {"x", "y", "score"}，未命中返回 None"""
+    """检测指定区域，命中返回 {"x", "y", "score"}，未命中返回 None
+
+    使用区域配置的 image 路径作为模板（不再依赖区域名与图片名一致）。
+    """
     zone = zones.get(name)
     if not zone:
         return None
     return executor.locate_zone_details(
         zone["center"],
         zone["size"],
-        name,
+        zone["image"],
         zone.get("confidence", 0.8),
         zone.get("grayscale", True),
     )

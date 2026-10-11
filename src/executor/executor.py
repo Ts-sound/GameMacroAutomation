@@ -452,7 +452,21 @@ class ScriptExecutor:
     def _resolve_image_path(
         self, name: str, script_dir: Optional[Path] = None
     ) -> Optional[Path]:
-        """解析图片路径"""
+        """解析图片路径
+
+        name 为模板名（如 "01_ready"）时按约定目录查找；
+        name 为显式路径（含目录分隔符或图片扩展名，如 "images/01_ready_2.png"）
+        时直接按脚本目录解析。
+        """
+        # 显式路径：直接解析（相对路径以脚本目录为基准）
+        if "/" in name or "\\" in name or Path(name).suffix:
+            p = Path(name)
+            if not p.is_absolute() and script_dir:
+                p = script_dir / p
+            if p.exists():
+                return p
+            return None
+
         # 先在脚本目录的 images 文件夹中查找（录制器生成的图片）
         if script_dir:
             local_path = script_dir / "images" / f"{name}.png"
