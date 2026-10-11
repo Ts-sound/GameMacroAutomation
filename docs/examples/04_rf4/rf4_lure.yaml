@@ -8,9 +8,9 @@ meta:
 config:
   window_title: "游戏窗口"
   log_level: "INFO"
-  esp32_host: "192.168.137.6"
+  esp32_host: "192.168.137.210"
   esp32_port: 80
-  tap_ms: 100 # 单击按键时长 ms（含 combo 时长）
+  tap_ms: 300 # 单击按键时长 ms（含 combo 时长）
   hold_ms: 300000 # 加速收线长按单次时长 ms
   detect_interval_ms: 500 # 检测频率 ms
   cast_wait_ms: 4000 # 抛出后等待下沉时长 ms（可配置）
@@ -19,14 +19,14 @@ config:
 
 assets:
   images:
-    ready: "images/01_ready.png"
+    ready: "images/01_ready_2.png"
     on_fish: "images/02_on_fish.png"
-    keep: "images/03_keep.png"
+    keep: "images/03_keep_2.png"
 
 # 检测区域：中心位置(绝对像素) + 尺寸(可配置) + grayscale + 置信度
 detection_zones:
   01_ready:
-    image: "images/01_ready.png"
+    image: "images/01_ready_2.png"
     center: [700, 1500]
     size: [400, 400]
     confidence: 0.8
@@ -38,7 +38,7 @@ detection_zones:
     confidence: 0.8
     grayscale: false
   03_keep:
-    image: "images/03_keep.png"
+    image: "images/03_keep_2.png"
     center: [1080, 1400]
     size: [400, 400]
     confidence: 0.8
