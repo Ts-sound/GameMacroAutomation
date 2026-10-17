@@ -148,14 +148,18 @@ def _jigging(
 ):
     """打状态：; 按 jig_press_ms / 松 jig_release_ms 循环，等待上鱼
 
+    按 1s 后若检测到 01_ready（已收完线），直接重新开始抛竿。
+
     Returns:
-        目标状态：REELING_FISH（上鱼）或 STOP
+        目标状态：REELING_FISH（上鱼）/ WAIT_READY（已收完线）/ STOP
     """
     while not stop_event.is_set():
         fired = kb.hold_interruptible(
             ";",
             duration_ms=jig_press_ms,
-            interrupt_check=_interrupt_check(executor, zones, stop_event, "02_on_fish"),
+            interrupt_check=_interrupt_check(
+                executor, zones, stop_event, "02_on_fish", "01_ready"
+            ),
             interval_ms=interval_ms,
         )
         if fired == STOP_SIGNAL:
@@ -163,16 +167,34 @@ def _jigging(
         if fired == "02_on_fish":
             _transition(executor, STATE_JIG, "02_on_fish", "停打状态", STATE_REEL_FISH)
             return STATE_REEL_FISH
+        if fired == "01_ready":
+            pos = _locate_zone(executor, zones, "01_ready")
+            _transition(
+                executor, STATE_JIG, "01_ready", "已收完线，重新开始", STATE_READY, pos
+            )
+            return STATE_READY
         if stop_event.is_set():
             return STATE_STOP
-        # 松开停 jig_release_ms，期间也检测上鱼
+        # 松开停 jig_release_ms，期间也检测上鱼与已收完线
         deadline = time.time() + jig_release_ms / 1000.0
         while not stop_event.is_set():
-            if _locate_zone(executor, zones, "02_on_fish"):
+            pos = _locate_zone(executor, zones, "02_on_fish")
+            if pos:
                 _transition(
-                    executor, STATE_JIG, "02_on_fish", "停打状态", STATE_REEL_FISH
+                    executor, STATE_JIG, "02_on_fish", "停打状态", STATE_REEL_FISH, pos
                 )
                 return STATE_REEL_FISH
+            pos = _locate_zone(executor, zones, "01_ready")
+            if pos:
+                _transition(
+                    executor,
+                    STATE_JIG,
+                    "01_ready",
+                    "已收完线，重新开始",
+                    STATE_READY,
+                    pos,
+                )
+                return STATE_READY
             remaining = deadline - time.time()
             if remaining <= 0:
                 break

@@ -33,6 +33,7 @@
 | T2 | WAIT_SINK | 等满 `cast_wait_ms`（默认 4s） | 开始打状态 | JIGGING |
 | T3 | WAIT_SINK | `02_on_fish` 出现（下沉中提前上鱼） | 开始加速收线 | REELING_FISH |
 | T4 | JIGGING | `02_on_fish` 出现 | 停打状态 | REELING_FISH |
+| T4b | JIGGING | `01_ready` 出现（按 1s 后已收完线） | 停打状态，重新开始 | WAIT_READY |
 | T5 | REELING_FISH | `03_keep` 出现 | 停 `shift`+`;`+`'` + tap 空格 | WAIT_READY |
 | T6 | REELING_FISH | `01_ready` 出现 | 停 `shift`+`;`+`'`（收完） | WAIT_READY |
 | T7 | REELING_FISH | 超时（长按按满无事件） | 停 `shift`+`;`+`'` → 继续收线 | REELING_FISH |
@@ -51,6 +52,7 @@ stateDiagram-v2
     WAIT_SINK --> JIGGING: 等满4s / 开始打状态
     WAIT_SINK --> REELING_FISH: 02_on_fish / 提前收线
     JIGGING --> REELING_FISH: 02_on_fish / 停打状态
+    JIGGING --> WAIT_READY: 01_ready / 已收完线重新开始
     REELING_FISH --> WAIT_READY: 03_keep / 停+space
     REELING_FISH --> WAIT_READY: 01_ready / 停
     REELING_FISH --> REELING_FISH: 超时 / 继续收线
@@ -62,7 +64,7 @@ stateDiagram-v2
 |------|---------|
 | WAIT_READY | `01_ready` |
 | WAIT_SINK | `02_on_fish` |
-| JIGGING | `02_on_fish` |
+| JIGGING | `02_on_fish`、`01_ready` |
 | REELING_FISH（长按中） | `03_keep`、`01_ready` |
 
 检测频率 0.5s（`config.detect_interval_ms: 500`，可配置）。长按中断轮询与主循环一致，均 0.5s。
@@ -111,7 +113,7 @@ python -m src.main run docs/examples/04_rf4/rf4_lure.yaml
 
 > `WAIT_SINK` 阶段等待 `cast_wait_ms`，期间仍轮询 `02_on_fish`，命中则跳过等待直接加速收线。
 >
-> `JIGGING` 打状态：`;` 按 `jig_press_ms` 后松 `jig_release_ms` 循环，按下与松开期间都检测 `02_on_fish`，上鱼即停。
+> `JIGGING` 打状态：`;` 按 `jig_press_ms` 后松 `jig_release_ms` 循环，按下与松开期间都检测 `02_on_fish`，上鱼即停；若检测到 `01_ready`（线已收完）则直接回到 `WAIT_READY` 重新抛竿。
 >
 > `REELING_FISH` 收线用 `shift`+`;`+`'` 组合键长按（shift 加速），单次 `hold_ms`，按满自动续按直到 `03_keep` 或 `01_ready` 出现；`03_keep` 可随时中断收线。
 
