@@ -4,6 +4,7 @@
 
 适用于：形状差异明显的图标（如形状完全不同）
 """
+import time
 
 
 def main(executor):
@@ -20,7 +21,7 @@ def main(executor):
             normal_template="icon_before",
             changed_template=["icon_after", "icon_after2"],  # 或多个模板
             color_mode="template",  # 默认值，可省略
-            interval_ms=500,
+            interval_ms=3000,
             on_changed=on_state_changed,
             sound={"type": "system"},
             timeout=60000,
@@ -29,6 +30,7 @@ def main(executor):
         if changed and coords:
             x, y = coords
             executor.log(f"检测到图标状态变化，位置: ({x}, {y})", "INFO")
+            time.sleep(10)
         else:
             executor.log("单次检测超时，继续监测...", "DEBUG")
 

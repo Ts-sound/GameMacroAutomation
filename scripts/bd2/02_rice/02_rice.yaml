@@ -1,0 +1,769 @@
+actions:
+- image: click_001
+  offset:
+  - 1632
+  - 1560
+  type: click_image
+- ms: 2782
+  type: delay
+- image: click_002
+  offset:
+  - 248
+  - 1363
+  type: click_image
+- ms: 1919
+  type: delay
+- image: click_003
+  offset:
+  - 506
+  - 876
+  type: click_image
+- ms: 1960
+  type: delay
+- image: click_004
+  offset:
+  - 2061
+  - 1348
+  type: click_image
+- ms: 1423
+  type: delay
+- image: click_005
+  offset:
+  - 1476
+  - 958
+  type: click_image
+- ms: 2117
+  type: delay
+- image: click_006
+  offset:
+  - 2356
+  - 162
+  type: click_image
+- ms: 2303
+  type: delay
+- image: click_007
+  offset:
+  - 251
+  - 156
+  type: click_image
+- ms: 1850
+  type: delay
+- image: click_008
+  offset:
+  - 517
+  - 1006
+  type: click_image
+- ms: 1130
+  type: delay
+- image: click_009
+  offset:
+  - 2027
+  - 1336
+  type: click_image
+- ms: 1032
+  type: delay
+- image: click_010
+  offset:
+  - 1446
+  - 953
+  type: click_image
+- ms: 1739
+  type: delay
+- image: click_011
+  offset:
+  - 2363
+  - 152
+  type: click_image
+- ms: 1696
+  type: delay
+- image: click_012
+  offset:
+  - 235
+  - 152
+  type: click_image
+- ms: 761
+  type: delay
+- clicks: -1
+  type: scroll
+  x: 483
+  y: 657
+- ms: 80
+  type: delay
+- clicks: -1
+  type: scroll
+  x: 483
+  y: 676
+- ms: 694
+  type: delay
+- image: click_013
+  offset:
+  - 497
+  - 885
+  type: click_image
+- ms: 1320
+  type: delay
+- image: click_014
+  offset:
+  - 1972
+  - 1389
+  type: click_image
+- ms: 974
+  type: delay
+- image: click_015
+  offset:
+  - 1476
+  - 940
+  type: click_image
+- ms: 1298
+  type: delay
+- image: click_016
+  offset:
+  - 2357
+  - 150
+  type: click_image
+- ms: 1551
+  type: delay
+- image: click_017
+  offset:
+  - 222
+  - 150
+  type: click_image
+- ms: 531
+  type: delay
+- clicks: -1
+  type: scroll
+  x: 454
+  y: 659
+- ms: 58
+  type: delay
+- clicks: -1
+  type: scroll
+  x: 449
+  y: 676
+- ms: 68
+  type: delay
+- clicks: -1
+  type: scroll
+  x: 451
+  y: 694
+- ms: 1259
+  type: delay
+- image: click_018
+  offset:
+  - 235
+  - 674
+  type: click_image
+- ms: 819
+  type: delay
+- image: click_019
+  offset:
+  - 462
+  - 769
+  type: click_image
+- ms: 1022
+  type: delay
+- image: click_020
+  offset:
+  - 1983
+  - 1357
+  type: click_image
+- ms: 1345
+  type: delay
+- image: click_021
+  offset:
+  - 1469
+  - 1007
+  type: click_image
+- ms: 1350
+  type: delay
+- image: click_022
+  offset:
+  - 2343
+  - 156
+  type: click_image
+- ms: 1991
+  type: delay
+- image: click_023
+  offset:
+  - 234
+  - 173
+  type: click_image
+- ms: 490
+  type: delay
+- clicks: -1
+  type: scroll
+  x: 576
+  y: 753
+- ms: 88
+  type: delay
+- clicks: -1
+  type: scroll
+  x: 561
+  y: 755
+- ms: 672
+  type: delay
+- image: click_024
+  offset:
+  - 483
+  - 657
+  type: click_image
+- ms: 997
+  type: delay
+- image: click_025
+  offset:
+  - 1946
+  - 1383
+  type: click_image
+- ms: 946
+  type: delay
+- image: click_026
+  offset:
+  - 1465
+  - 944
+  type: click_image
+- ms: 1334
+  type: delay
+- image: click_027
+  offset:
+  - 2360
+  - 174
+  type: click_image
+- ms: 1578
+  type: delay
+- image: click_028
+  offset:
+  - 235
+  - 170
+  type: click_image
+- ms: 1046
+  type: delay
+- image: click_029
+  offset:
+  - 499
+  - 886
+  type: click_image
+- ms: 836
+  type: delay
+- image: click_030
+  offset:
+  - 1985
+  - 1383
+  type: click_image
+- ms: 815
+  type: delay
+- image: click_031
+  offset:
+  - 1474
+  - 991
+  type: click_image
+- ms: 1126
+  type: delay
+- image: click_032
+  offset:
+  - 2354
+  - 155
+  type: click_image
+- ms: 1502
+  type: delay
+- image: click_033
+  offset:
+  - 203
+  - 148
+  type: click_image
+- ms: 806
+  type: delay
+- clicks: -1
+  type: scroll
+  x: 489
+  y: 720
+- ms: 74
+  type: delay
+- clicks: -1
+  type: scroll
+  x: 494
+  y: 731
+- ms: 104
+  type: delay
+- clicks: -1
+  type: scroll
+  x: 494
+  y: 732
+- ms: 1344
+  type: delay
+- image: click_034
+  offset:
+  - 240
+  - 139
+  type: click_image
+- ms: 8902
+  type: delay
+- image: click_035
+  offset:
+  - 239
+  - 436
+  type: click_image
+- ms: 1833
+  type: delay
+- image: click_036
+  offset:
+  - 1518
+  - 1058
+  type: click_image
+- ms: 2579
+  type: delay
+- image: click_037
+  offset:
+  - 1703
+  - 1056
+  type: click_image
+- ms: 2052
+  type: delay
+- image: click_038
+  offset:
+  - 1536
+  - 1064
+  type: click_image
+- ms: 3209
+  type: delay
+- image: click_039
+  offset:
+  - 1120
+  - 1160
+  type: click_image
+- ms: 15742
+  type: delay
+- image: click_040
+  offset:
+  - 2319
+  - 817
+  type: click_image
+- ms: 4886
+  type: delay
+- image: click_041
+  offset:
+  - 1166
+  - 1239
+  type: click_image
+- ms: 7133
+  type: delay
+- image: click_042
+  offset:
+  - 468
+  - 1319
+  type: click_image
+- ms: 1615
+  type: delay
+- image: click_043
+  offset:
+  - 1619
+  - 1392
+  type: click_image
+- ms: 1692
+  type: delay
+- image: click_044
+  offset:
+  - 1573
+  - 846
+  type: click_image
+- ms: 1440
+  type: delay
+- image: click_045
+  offset:
+  - 1413
+  - 1186
+  type: click_image
+- ms: 4201
+  type: delay
+- key: esc
+  type: keypress
+- ms: 1752
+  type: delay
+- key: esc
+  type: keypress
+- ms: 2526
+  type: delay
+- image: click_046
+  offset:
+  - 240
+  - 157
+  type: click_image
+- ms: 17262
+  type: delay
+- image: click_047
+  offset:
+  - 468
+  - 1412
+  type: click_image
+- ms: 2976
+  type: delay
+- image: click_048
+  offset:
+  - 228
+  - 412
+  type: click_image
+- ms: 3881
+  type: delay
+- image: click_049
+  offset:
+  - 1053
+  - 374
+  type: click_image
+- ms: 3774
+  type: delay
+- image: click_050
+  offset:
+  - 700
+  - 1055
+  type: click_image
+- ms: 1533
+  type: delay
+- image: click_051
+  offset:
+  - 1413
+  - 1010
+  type: click_image
+- ms: 5208
+  type: delay
+- image: click_052
+  offset:
+  - 1277
+  - 1401
+  type: click_image
+- ms: 6356
+  type: delay
+- image: click_053
+  offset:
+  - 1881
+  - 359
+  type: click_image
+- ms: 2067
+  type: delay
+- image: click_054
+  offset:
+  - 1840
+  - 1060
+  type: click_image
+- ms: 1765
+  type: delay
+- image: click_055
+  offset:
+  - 2081
+  - 1434
+  type: click_image
+- ms: 4493
+  type: delay
+- image: click_056
+  offset:
+  - 203
+  - 144
+  type: click_image
+- ms: 1484
+  type: delay
+- image: click_057
+  offset:
+  - 203
+  - 144
+  type: click_image
+- ms: 12798
+  type: delay
+- image: click_058
+  offset:
+  - 2274
+  - 1396
+  type: click_image
+- ms: 2965
+  type: delay
+- image: click_059
+  offset:
+  - 350
+  - 989
+  type: click_image
+- ms: 15148
+  type: delay
+- image: click_060
+  offset:
+  - 1044
+  - 732
+  type: click_image
+- ms: 702
+  type: delay
+- key: s
+  type: keypress
+- ms: 427
+  type: delay
+- key: a
+  type: keypress
+- ms: 533
+  type: delay
+- key: w
+  type: keypress
+- ms: 4937
+  type: delay
+- image: click_061
+  offset:
+  - 2032
+  - 1382
+  type: click_image
+- ms: 5376
+  type: delay
+- image: click_062
+  offset:
+  - 1001
+  - 1058
+  type: click_image
+- ms: 1427
+  type: delay
+- image: click_063
+  offset:
+  - 1017
+  - 1060
+  type: click_image
+- ms: 1229
+  type: delay
+- image: click_064
+  offset:
+  - 1449
+  - 1166
+  type: click_image
+- ms: 68893
+  type: delay
+- image: click_065
+  offset:
+  - 1907
+  - 708
+  type: click_image
+- ms: 2489
+  type: delay
+- image: click_066
+  offset:
+  - 2298
+  - 1448
+  type: click_image
+- ms: 4356
+  type: delay
+- image: click_067
+  offset:
+  - 1314
+  - 1412
+  type: click_image
+- ms: 1985
+  type: delay
+- image: click_068
+  offset:
+  - 2419
+  - 159
+  type: click_image
+- ms: 2719
+  type: delay
+- image: click_069
+  offset:
+  - 2356
+  - 449
+  type: click_image
+- ms: 3243
+  type: delay
+- image: click_070
+  offset:
+  - 1114
+  - 828
+  type: click_image
+- ms: 1632
+  type: delay
+- image: click_071
+  offset:
+  - 2060
+  - 1376
+  type: click_image
+- ms: 1314
+  type: delay
+- image: click_072
+  offset:
+  - 1466
+  - 1112
+  type: click_image
+- ms: 2569
+  type: delay
+- image: click_073
+  offset:
+  - 724
+  - 591
+  type: click_image
+- ms: 1636
+  type: delay
+- image: click_074
+  offset:
+  - 231
+  - 425
+  type: click_image
+- ms: 5178
+  type: delay
+- image: click_075
+  offset:
+  - 232
+  - 554
+  type: click_image
+- ms: 2613
+  type: delay
+- image: click_076
+  offset:
+  - 2170
+  - 1392
+  type: click_image
+- ms: 1106
+  type: delay
+- image: click_077
+  offset:
+  - 1573
+  - 854
+  type: click_image
+- ms: 929
+  type: delay
+- image: click_078
+  offset:
+  - 1458
+  - 1106
+  type: click_image
+- ms: 2393
+  type: delay
+- image: click_079
+  offset:
+  - 1302
+  - 1391
+  type: click_image
+- ms: 1253
+  type: delay
+- image: click_080
+  offset:
+  - 264
+  - 682
+  type: click_image
+- ms: 2521
+  type: delay
+- image: click_081
+  offset:
+  - 2147
+  - 1399
+  type: click_image
+- ms: 1284
+  type: delay
+- image: click_082
+  offset:
+  - 1564
+  - 849
+  type: click_image
+- ms: 931
+  type: delay
+- image: click_083
+  offset:
+  - 1462
+  - 1107
+  type: click_image
+- ms: 1733
+  type: delay
+- image: click_084
+  offset:
+  - 1298
+  - 1395
+  type: click_image
+- ms: 1673
+  type: delay
+- image: click_085
+  offset:
+  - 209
+  - 143
+  type: click_image
+assets:
+  images:
+    click_001: images/click_001.png
+    click_002: images/click_002.png
+    click_003: images/click_003.png
+    click_004: images/click_004.png
+    click_005: images/click_005.png
+    click_006: images/click_006.png
+    click_007: images/click_007.png
+    click_008: images/click_008.png
+    click_009: images/click_009.png
+    click_010: images/click_010.png
+    click_011: images/click_011.png
+    click_012: images/click_012.png
+    click_013: images/click_013.png
+    click_014: images/click_014.png
+    click_015: images/click_015.png
+    click_016: images/click_016.png
+    click_017: images/click_017.png
+    click_018: images/click_018.png
+    click_019: images/click_019.png
+    click_020: images/click_020.png
+    click_021: images/click_021.png
+    click_022: images/click_022.png
+    click_023: images/click_023.png
+    click_024: images/click_024.png
+    click_025: images/click_025.png
+    click_026: images/click_026.png
+    click_027: images/click_027.png
+    click_028: images/click_028.png
+    click_029: images/click_029.png
+    click_030: images/click_030.png
+    click_031: images/click_031.png
+    click_032: images/click_032.png
+    click_033: images/click_033.png
+    click_034: images/click_034.png
+    click_035: images/click_035.png
+    click_036: images/click_036.png
+    click_037: images/click_037.png
+    click_038: images/click_038.png
+    click_039: images/click_039.png
+    click_040: images/click_040.png
+    click_041: images/click_041.png
+    click_042: images/click_042.png
+    click_043: images/click_043.png
+    click_044: images/click_044.png
+    click_045: images/click_045.png
+    click_046: images/click_046.png
+    click_047: images/click_047.png
+    click_048: images/click_048.png
+    click_049: images/click_049.png
+    click_050: images/click_050.png
+    click_051: images/click_051.png
+    click_052: images/click_052.png
+    click_053: images/click_053.png
+    click_054: images/click_054.png
+    click_055: images/click_055.png
+    click_056: images/click_056.png
+    click_057: images/click_057.png
+    click_058: images/click_058.png
+    click_059: images/click_059.png
+    click_060: images/click_060.png
+    click_061: images/click_061.png
+    click_062: images/click_062.png
+    click_063: images/click_063.png
+    click_064: images/click_064.png
+    click_065: images/click_065.png
+    click_066: images/click_066.png
+    click_067: images/click_067.png
+    click_068: images/click_068.png
+    click_069: images/click_069.png
+    click_070: images/click_070.png
+    click_071: images/click_071.png
+    click_072: images/click_072.png
+    click_073: images/click_073.png
+    click_074: images/click_074.png
+    click_075: images/click_075.png
+    click_076: images/click_076.png
+    click_077: images/click_077.png
+    click_078: images/click_078.png
+    click_079: images/click_079.png
+    click_080: images/click_080.png
+    click_081: images/click_081.png
+    click_082: images/click_082.png
+    click_083: images/click_083.png
+    click_084: images/click_084.png
+    click_085: images/click_085.png
+config:
+  log_level: INFO
+  retry_times: 3
+  window_title: BrownDust II
+meta:
+  created_by: recorder
+  name: 录制脚本
+  version: '1.0'

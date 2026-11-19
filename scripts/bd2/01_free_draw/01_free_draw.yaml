@@ -1,0 +1,73 @@
+actions:
+- image: click_001
+  offset:
+  - 228
+  - 1397
+  type: click_image
+- ms: 3864
+  type: delay
+- image: click_002
+  offset:
+  - 242
+  - 495
+  type: click_image
+- ms: 1863
+  type: delay
+- image: click_003
+  offset:
+  - 234
+  - 654
+  type: click_image
+- ms: 8878
+  type: delay
+- image: click_004
+  offset:
+  - 582
+  - 576
+  type: click_image
+- ms: 2976
+  type: delay
+- image: click_005
+  offset:
+  - 1997
+  - 1381
+  type: click_image
+- ms: 2793
+  type: delay
+- image: click_006
+  offset:
+  - 1433
+  - 936
+  type: click_image
+- ms: 2716
+  type: delay
+- image: click_007
+  offset:
+  - 2367
+  - 151
+  type: click_image
+- ms: 3460
+  type: delay
+- image: click_008
+  offset:
+  - 223
+  - 141
+  type: click_image
+assets:
+  images:
+    click_001: images/click_001.png
+    click_002: images/click_002.png
+    click_003: images/click_003.png
+    click_004: images/click_004.png
+    click_005: images/click_005.png
+    click_006: images/click_006.png
+    click_007: images/click_007.png
+    click_008: images/click_008.png
+config:
+  log_level: INFO
+  retry_times: 3
+  window_title: BrownDust II
+meta:
+  created_by: recorder
+  name: 录制脚本
+  version: '1.0'

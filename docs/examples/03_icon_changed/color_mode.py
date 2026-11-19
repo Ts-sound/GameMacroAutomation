@@ -24,7 +24,7 @@ def main(executor):
             changed_template=[],                    # color 模式不需要
             color_mode="color",                     # 颜色对比模式
             color_diff_threshold=0.15,              # 颜色差异阈值
-            interval_ms=500,
+            interval_ms=300,
             on_changed=on_state_changed,
             sound={"type": "system"},
             timeout=60000
@@ -33,7 +33,7 @@ def main(executor):
         if changed and coords:
             x, y = coords
             executor.log(f"检测到图标状态变化，位置: ({x}, {y})", "INFO")
-            return True
+            # return True
         else:
             executor.log("单次检测超时，继续监测...", "DEBUG")
 

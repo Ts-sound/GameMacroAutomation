@@ -23,7 +23,7 @@ def main(executor):
             changed_template=["icon_after", "icon_after2"],  # 支持多个变化态模板
             color_mode="histogram",
             histogram_threshold=0.7,   # 相似度阈值，越高越严格
-            interval_ms=500,
+            interval_ms=1000,
             on_changed=on_state_changed,
             sound={"type": "system"},
             timeout=60000
@@ -32,7 +32,7 @@ def main(executor):
         if changed and coords:
             x, y = coords
             executor.log(f"检测到图标状态变化，位置: ({x}, {y})", "INFO")
-            return True
+            # return True
         else:
             executor.log("单次检测超时，继续监测...", "DEBUG")
 
