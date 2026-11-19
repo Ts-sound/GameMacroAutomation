@@ -1,0 +1,16 @@
+# 循环按键脚本（pynput 默认控制器，无需 ESP32）
+# python -m src.main run docs/examples/04_rf4/key_loop.yaml
+meta:
+  name: "循环按键"
+  version: "1.0"
+  description: "按 keys 列表循环按键，F5 开始/暂停，使用 pynput 默认控制器"
+  created_by: "manual"
+
+config:
+  window_title: "游戏窗口"
+  log_level: "INFO"
+  keys: ["mouse_left", "space",";"] # 鼠标 mouse_left/right/middle；键盘单字符或 space/enter/f1 等
+  interval_ms: 200 # 每个键之后间隔 ms
+  press_ms: 50 # 键盘按住时长 ms（鼠标为单击，不受此值影响）
+
+python_script: "key_loop.py"

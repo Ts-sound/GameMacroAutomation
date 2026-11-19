@@ -82,6 +82,35 @@ python -m src.main run docs/examples/04_rf4/rf4.yaml
 - 按 `ctrl+alt+p` 立即停止（含收线长按中途，自动 `release_all` 防卡键），回到空闲
 - 再按 `ctrl+alt+o` 从 `WAIT_READY` 重新开始
 
+## 循环按键脚本（key_loop）
+
+[pynput](key_loop.py) 实现的通用循环按键，不依赖 ESP32。按 `config.keys` 顺序循环
+按键，启动即暂停，`F5` 开始/暂停，`Ctrl+C` 退出。
+
+```bash
+python -m src.main run docs/examples/04_rf4/key_loop.yaml
+```
+
+### 配置（key_loop.yaml config）
+
+| 字段 | 说明 | 默认 |
+|------|------|------|
+| `keys` | 按键列表，顺序循环 | `["mouse_left", "space"]` |
+| `interval_ms` | 每个键之后间隔 | `300` |
+| `press_ms` | 键盘按住时长（鼠标为单击，不受影响） | `50` |
+
+### 键名
+
+- 鼠标：`mouse_left`、`mouse_right`、`mouse_middle`（当前位置单击）
+- 键盘：单字符（`a`、`;`、`1`）、`space`、`enter`、`tab`、`esc`、`backspace`、
+  `shift`、`ctrl`、`alt`、`up`/`down`/`left`/`right`、`f1`..`f12` 等 pynput Key 名
+
+未知键启动时报错退出；`keys` 不能包含 `f5`（暂停热键）。
+
+- 启动后先暂停，按 `F5` 开始循环，再按 `F5` 暂停（立即停，最多延迟 50ms）
+- 暂停、`Ctrl+C` 时释放修饰键与鼠标按钮，防卡键
+- 部分全屏游戏会占用 `F5`，或用反作弊拦截 pynput 注入
+
 ## 日志格式
 
 状态变化时打印：`[当前状态] | 事件 | 动作 | 目标状态`，检测命中同时打印位置与置信度。
