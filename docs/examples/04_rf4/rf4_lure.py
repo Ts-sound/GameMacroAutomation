@@ -47,6 +47,7 @@ DEFAULT_INTERVAL_MS = 500
 DEFAULT_CAST_WAIT_MS = 4000
 DEFAULT_JIG_PRESS_MS = 1000
 DEFAULT_JIG_RELEASE_MS = 3000
+DEFAULT_CAST_KEYS = ["shift", ";"]
 
 # 状态定义
 STATE_READY = "WAIT_READY"  # 等待抛竿
@@ -218,15 +219,22 @@ def step(
     cast_wait_ms,
     jig_press_ms,
     jig_release_ms,
+    cast_keys,
+    cast_press_ms,
 ):
     """状态机单步执行，返回下一个状态"""
     if state == STATE_READY:
         pos = _locate_zone(executor, zones, "01_ready")
         if pos:
             _transition(
-                executor, state, "01_ready", "combo shift+; 抛出", STATE_SINK, pos
+                executor,
+                state,
+                "01_ready",
+                f"combo {'+'.join(cast_keys)} 抛出",
+                STATE_SINK,
+                pos,
             )
-            kb.combo(["shift", ";"], press_ms=tap_ms)
+            kb.combo(cast_keys, press_ms=cast_press_ms)
             return STATE_SINK
         return STATE_READY
 
@@ -281,6 +289,8 @@ def _run_loop(
     cast_wait_ms,
     jig_press_ms,
     jig_release_ms,
+    cast_keys,
+    cast_press_ms,
 ):
     """运行自动化主循环，停止热键触发时退出"""
     state = STATE_INIT
@@ -298,6 +308,8 @@ def _run_loop(
             cast_wait_ms,
             jig_press_ms,
             jig_release_ms,
+            cast_keys,
+            cast_press_ms,
         )
         if state == STATE_STOP:
             break
@@ -317,6 +329,12 @@ def main(executor):
     cast_wait_ms = int(cfg.get("cast_wait_ms", DEFAULT_CAST_WAIT_MS))
     jig_press_ms = int(cfg.get("jig_press_ms", DEFAULT_JIG_PRESS_MS))
     jig_release_ms = int(cfg.get("jig_release_ms", DEFAULT_JIG_RELEASE_MS))
+    cast_keys = cfg.get("cast_keys", DEFAULT_CAST_KEYS)
+    if not isinstance(cast_keys, list) or not cast_keys:
+        executor.log("config.cast_keys 必须为非空列表，如 [\"shift\", \";\"]", "ERROR")
+        return False
+    cast_keys = [str(k) for k in cast_keys]
+    cast_press_ms = int(cfg.get("cast_press_ms", tap_ms))
     backend = str(cfg.get("keyboard_backend", "esp32")).lower()
     if backend not in ("esp32", "pynput"):
         executor.log(
@@ -355,7 +373,8 @@ def main(executor):
             "INFO",
         )
         executor.log(
-            f"抛竿等待 {cast_wait_ms}ms | "
+            f"抛竿: {'+'.join(cast_keys)} 按 {cast_press_ms}ms | "
+            f"等待 {cast_wait_ms}ms | "
             f"打状态: ; 按 {jig_press_ms}ms / 松 {jig_release_ms}ms",
             "INFO",
         )
@@ -380,6 +399,8 @@ def main(executor):
                 cast_wait_ms,
                 jig_press_ms,
                 jig_release_ms,
+                cast_keys,
+                cast_press_ms,
             )
             active.clear()
             kb.release_all()

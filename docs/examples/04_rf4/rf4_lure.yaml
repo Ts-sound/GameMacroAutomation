@@ -16,6 +16,8 @@ config:
   hold_ms: 300000 # 加速收线长按单次时长 ms
   detect_interval_ms: 100 # 检测频率 ms
   cast_wait_ms: 4000 # 抛出后等待下沉时长 ms（可配置）
+  cast_keys: ["shift", ";"] # 抛竿组合键
+  cast_press_ms: 150 # 抛竿组合键按住时长 ms（默认同 tap_ms）
   jig_press_ms: 600 # 打状态 ; 按下时长 ms
   jig_release_ms: 2700 # 打状态 ; 松开时长 ms
 

@@ -104,6 +104,8 @@ python -m src.main run docs/examples/04_rf4/rf4_lure.yaml
 |------|------|------|
 | `detect_interval_ms` | 检测频率 | `500` |
 | `cast_wait_ms` | 抛出后等待下沉时长 | `4000` |
+| `cast_keys` | 抛竿组合键 | `["shift", ";"]` |
+| `cast_press_ms` | 抛竿组合键按住时长 | 同 `tap_ms` |
 | `hold_ms` | 加速收线长按单次时长（按满自动续按） | `300000` |
 | `tap_ms` | 单击时长（含 combo 时长） | `100` |
 | `jig_press_ms` | 打状态 `;` 按下时长 | `1000` |
