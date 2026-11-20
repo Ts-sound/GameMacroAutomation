@@ -179,7 +179,7 @@ python detect_debug.py images/02_on_fish.png --grayscale --confidence 0.7 --once
 
 两种后端实现同一套按键 API（`tap` / `hold` / `hold_interruptible` /
 `combo_hold_interruptible` / `combo` / `press` / `release` / `release_all`），
-rf4_lure 逻辑不变。pynput 模式仍支持 `ctrl+alt+o` / `ctrl+alt+p` / `ctrl+c`；
+rf4_lure 逻辑不变。pynput 模式仍支持 `F5` 启动/停止与 `ctrl+c` 退出；
 部分全屏游戏或反作弊会拦截系统注入。
 
 ### ESP32 键盘模块

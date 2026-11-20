@@ -26,8 +26,7 @@
 - 主循环轮询与长按中断检查共用同一频率
 
 快捷键控制:
-- ctrl+alt+o  启动自动化（从 WAIT_READY 开始）
-- ctrl+alt+p  停止（暂停回空闲，可再启动；收线/打状态中立即释放按键）
+- F5          启动；运行中再按停止（暂停回空闲，可再启动；收线/打状态中立即释放按键）
 - ctrl+c      优雅退出整个脚本
 
 日志格式（状态变化时打印）:
@@ -327,12 +326,19 @@ def main(executor):
 
     start_event = threading.Event()
     stop_event = threading.Event()
-    hotkeys = keyboard.GlobalHotKeys(
-        {
-            "<ctrl>+<alt>+o": start_event.set,
-            "<ctrl>+<alt>+p": stop_event.set,
-        }
-    )
+    active = threading.Event()  # 运行中：F5 表示停止，否则表示启动
+
+    def on_press(key):
+        if key != keyboard.Key.f5:
+            return
+        if active.is_set():
+            stop_event.set()
+            executor.log("F5: 停止", "INFO")
+        else:
+            start_event.set()
+            executor.log("F5: 启动", "INFO")
+
+    hotkeys = keyboard.Listener(on_press=on_press)
 
     if backend == "pynput":
         kb = PynputKeyboard()
@@ -354,14 +360,14 @@ def main(executor):
             "INFO",
         )
         hotkeys.start()
-        executor.log(
-            "快捷键: ctrl+alt+o 启动 / ctrl+alt+p 停止 / ctrl+c 退出",
-            "INFO",
-        )
+        executor.log("快捷键: F5 启动/停止 / ctrl+c 退出", "INFO")
 
         while True:
-            start_event.wait()
+            # 定时唤醒：Windows 上无超时的 Event.wait 会挡住 Ctrl+C
+            if not start_event.wait(0.2):
+                continue
             start_event.clear()
+            active.set()
             stop_event.clear()
             _run_loop(
                 executor,
@@ -375,6 +381,7 @@ def main(executor):
                 jig_press_ms,
                 jig_release_ms,
             )
+            active.clear()
             kb.release_all()
     except KeyboardInterrupt:
         executor.log("收到 ctrl+c，优雅退出...", "INFO")

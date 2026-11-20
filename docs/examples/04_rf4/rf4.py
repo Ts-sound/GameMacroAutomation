@@ -296,7 +296,9 @@ def main(executor):
         )
 
         while True:
-            start_event.wait()
+            # 定时唤醒：Windows 上无超时的 Event.wait 会挡住 Ctrl+C
+            if not start_event.wait(0.2):
+                continue
             start_event.clear()
             stop_event.clear()
             _run_loop(
