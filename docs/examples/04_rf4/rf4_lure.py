@@ -12,6 +12,10 @@
                 按满超时                  -> 续长按（继续收）
 5. STOP:        停止
 
+键盘后端 keyboard_backend（默认 esp32）:
+- esp32: 通过 esp32_keyboard.Esp32Keyboard 走 TCP/BLE 硬件键盘
+- pynput: 通过 pynput_keyboard.PynputKeyboard 走系统注入
+
 检测设置（yaml detection_zones）:
 - center: 区域中心位置（绝对像素，可配置）
 - size: 区域尺寸（可配置）
@@ -36,6 +40,7 @@ import time
 
 from esp32_keyboard import DEFAULT_HOST, DEFAULT_PORT, Esp32Keyboard
 from pynput import keyboard
+from pynput_keyboard import PynputKeyboard
 
 DEFAULT_TAP_MS = 100
 DEFAULT_HOLD_MS = 300000
@@ -313,6 +318,12 @@ def main(executor):
     cast_wait_ms = int(cfg.get("cast_wait_ms", DEFAULT_CAST_WAIT_MS))
     jig_press_ms = int(cfg.get("jig_press_ms", DEFAULT_JIG_PRESS_MS))
     jig_release_ms = int(cfg.get("jig_release_ms", DEFAULT_JIG_RELEASE_MS))
+    backend = str(cfg.get("keyboard_backend", "esp32")).lower()
+    if backend not in ("esp32", "pynput"):
+        executor.log(
+            f"未知 keyboard_backend: {backend}（可选 esp32 / pynput）", "ERROR"
+        )
+        return False
 
     start_event = threading.Event()
     stop_event = threading.Event()
@@ -323,10 +334,16 @@ def main(executor):
         }
     )
 
-    kb = Esp32Keyboard(host=host, port=port)
+    if backend == "pynput":
+        kb = PynputKeyboard()
+    else:
+        kb = Esp32Keyboard(host=host, port=port)
     try:
         kb.connect()
-        executor.log(f"ESP32 已连接 {host}:{port}", "INFO")
+        if backend == "pynput":
+            executor.log("键盘后端: pynput（系统注入）", "INFO")
+        else:
+            executor.log(f"键盘后端: esp32，已连接 {host}:{port}", "INFO")
         executor.log(
             f"长按时长 {hold_ms}ms，单击时长 {tap_ms}ms，检测频率 {interval_ms}ms",
             "INFO",

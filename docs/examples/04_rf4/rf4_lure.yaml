@@ -11,6 +11,7 @@ config:
   log_level: "INFO"
   esp32_host: "192.168.137.162"
   esp32_port: 80
+  keyboard_backend: "esp32" # 键盘后端：esp32（TCP/BLE 硬件）| pynput（系统注入）
   tap_ms: 150 # 单击按键时长 ms（含 combo 时长）
   hold_ms: 300000 # 加速收线长按单次时长 ms
   detect_interval_ms: 100 # 检测频率 ms
@@ -18,11 +19,11 @@ config:
   jig_press_ms: 600 # 打状态 ; 按下时长 ms
   jig_release_ms: 2700 # 打状态 ; 松开时长 ms
 
-assets:
-  images:
-    ready: "images/01_ready_2.png"
-    on_fish: "images/02_on_fish.png"
-    keep: "images/03_keep_2.png"
+#assets:
+#  images:
+#    ready: "images/01_ready_2.png"
+#    on_fish: "images/02_on_fish.png"
+#    keep: "images/03_keep_2.png"
 
 # 检测区域：中心位置(绝对像素) + 尺寸(可配置) + grayscale + 置信度
 detection_zones:

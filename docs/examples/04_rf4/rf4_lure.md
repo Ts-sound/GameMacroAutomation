@@ -109,7 +109,8 @@ python -m src.main run docs/examples/04_rf4/rf4_lure.yaml
 | `tap_ms` | 单击时长（含 combo 时长） | `100` |
 | `jig_press_ms` | 打状态 `;` 按下时长 | `1000` |
 | `jig_release_ms` | 打状态 `;` 松开时长 | `3000` |
-| `esp32_host` / `esp32_port` | ESP32 地址 | `192.168.137.6` / `80` |
+| `keyboard_backend` | 键盘后端：`esp32`（硬件）/ `pynput`（系统注入） | `esp32` |
+| `esp32_host` / `esp32_port` | ESP32 地址（仅 `esp32` 后端使用） | `192.168.137.6` / `80` |
 
 > `WAIT_SINK` 阶段等待 `cast_wait_ms`，期间仍轮询 `02_on_fish`，命中则跳过等待直接加速收线。
 >

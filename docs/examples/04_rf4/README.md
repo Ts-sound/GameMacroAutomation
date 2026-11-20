@@ -168,6 +168,20 @@ python detect_debug.py images/02_on_fish.png --grayscale --confidence 0.7 --once
 目前只发送单键及组合键
 其他控制后续在添加
 
+### 键盘后端切换（rf4_lure.yaml）
+
+`config.keyboard_backend` 选择按键注入方式：
+
+| 值 | 说明 |
+|----|------|
+| `esp32`（默认） | ESP32 TCP/BLE 硬件键盘，需配 `esp32_host` / `esp32_port` |
+| `pynput` | 系统注入键盘（[pynput_keyboard.py](pynput_keyboard.py)），无需硬件 |
+
+两种后端实现同一套按键 API（`tap` / `hold` / `hold_interruptible` /
+`combo_hold_interruptible` / `combo` / `press` / `release` / `release_all`），
+rf4_lure 逻辑不变。pynput 模式仍支持 `ctrl+alt+o` / `ctrl+alt+p` / `ctrl+c`；
+部分全屏游戏或反作弊会拦截系统注入。
+
 ### ESP32 键盘模块
 
 - **模块**: [esp32_keyboard.py](esp32_keyboard.py)（纯标准库，无第三方依赖）
